@@ -1,7 +1,9 @@
 import uuid
 
 import pytest
+from pydantic import ValidationError
 
+from app.core.config import Settings
 from app.core.security import create_token, decode_token, hash_password, verify_password
 
 
@@ -28,3 +30,8 @@ def test_refresh_token_cannot_be_used_as_access_token() -> None:
 
     with pytest.raises(ValueError, match="Invalid"):
         decode_token(token, "access")
+
+
+def test_production_rejects_default_development_secrets() -> None:
+    with pytest.raises(ValidationError, match="must be changed"):
+        Settings(app_environment="production", _env_file=None)

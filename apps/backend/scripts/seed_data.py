@@ -1,5 +1,8 @@
 import asyncio
+import json
+import math
 from dataclasses import dataclass
+from pathlib import Path
 
 from faker import Faker
 from geoalchemy2.elements import WKTElement
@@ -14,6 +17,7 @@ from app.services.audit import write_audit_log
 fake = Faker("en_IN")
 DEMO_PASSWORD = "DemoPass123!"
 DEMO_PROJECT_NAME = "Pune Ring Road Demonstration"
+OSM_GEOMETRY_PATH = Path(__file__).parent / "data" / "kharadi_bypass_osm.json"
 
 
 @dataclass(frozen=True)
@@ -42,18 +46,22 @@ STAGE_PATH = [
 
 
 def demo_polygon(index: int) -> WKTElement:
-    """Return a small synthetic parcel near Pune for demo use only."""
-    row, column = divmod(index, 5)
-    longitude = 73.82 + (column * 0.003)
-    latitude = 18.50 + (row * 0.003)
-    width = 0.0022
-    height = 0.0020
+    """Derive a synthetic parcel boundary from a real OSM road segment."""
+    source = json.loads(OSM_GEOMETRY_PATH.read_text())
+    start = source["geometry"][index]
+    end = source["geometry"][index + 1]
+    dx = end["lon"] - start["lon"]
+    dy = end["lat"] - start["lat"]
+    length = math.hypot(dx, dy)
+    offset = 0.00035
+    perpendicular_x = (-dy / length) * offset
+    perpendicular_y = (dx / length) * offset
     points = [
-        (longitude, latitude),
-        (longitude + width, latitude),
-        (longitude + width, latitude + height),
-        (longitude, latitude + height),
-        (longitude, latitude),
+        (start["lon"] + perpendicular_x, start["lat"] + perpendicular_y),
+        (end["lon"] + perpendicular_x, end["lat"] + perpendicular_y),
+        (end["lon"] - perpendicular_x, end["lat"] - perpendicular_y),
+        (start["lon"] - perpendicular_x, start["lat"] - perpendicular_y),
+        (start["lon"] + perpendicular_x, start["lat"] + perpendicular_y),
     ]
     coordinates = ", ".join(f"{x} {y}" for x, y in points)
     return WKTElement(f"POLYGON(({coordinates}))", srid=4326)
@@ -63,7 +71,17 @@ async def seed() -> None:
     async with SessionFactory() as db:
         existing = await db.scalar(select(Project).where(Project.name == DEMO_PROJECT_NAME))
         if existing:
-            print("Demo data already exists; nothing changed.")
+            parcels = list(
+                await db.scalars(
+                    select(Parcel)
+                    .where(Parcel.project_id == existing.id)
+                    .order_by(Parcel.khasra_survey_no)
+                )
+            )
+            for index, parcel in enumerate(parcels[:20]):
+                parcel.polygon = demo_polygon(index)
+            await db.commit()
+            print("Updated existing demo parcels from OpenStreetMap road geometry.")
             return
 
         accounts: dict[UserRole, User] = {}

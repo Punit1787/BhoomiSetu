@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -13,6 +14,15 @@ class Settings(BaseSettings):
     refresh_token_days: int = 7
 
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    @model_validator(mode="after")
+    def reject_development_secrets_in_production(self) -> "Settings":
+        if self.app_environment == "production":
+            if "local-development" in self.jwt_secret:
+                raise ValueError("JWT_SECRET must be changed in production")
+            if "local-development" in self.jwt_refresh_secret:
+                raise ValueError("JWT_REFRESH_SECRET must be changed in production")
+        return self
 
 
 @lru_cache

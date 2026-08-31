@@ -15,13 +15,15 @@
 - Six-stage workflow service, stage history, and illegal-transition validation
 - Hash-chained audit writes with concurrency protection
 - Idempotent seed script with five accounts and twenty varied cases
+- Twenty synthetic parcel boundaries derived from OpenStreetMap Kharadi Bypass geometry
 - Backend linting and fourteen automated tests
 - CI workflow backed by an isolated PostGIS service
 - FastAPI-generated Swagger/OpenAPI documentation
 
 ## Intentionally local
 
-- Demo parcel boundaries and citizens are synthetic.
+- Parcel boundaries and citizens are synthetic; parcel placement is derived from
+  OpenStreetMap way 23153027 (Kharadi Bypass, ODbL).
 - Supabase is deferred; local PostgreSQL provides the same Phase 1 database behavior.
 - Public deployment requires selecting and signing into Render, Railway, or another host.
 
@@ -33,6 +35,5 @@
 - [x] Swagger/OpenAPI documents the API.
 - [x] A case moves through all six stages.
 - [x] Stage history and audit records populate.
-- [x] Twenty realistic synthetic parcel geometries are seeded near Pune.
+- [x] Twenty synthetic parcel geometries derived from a real Pune OSM road are seeded.
 - [ ] Backend is publicly deployed (external account/hosting decision required).
-
