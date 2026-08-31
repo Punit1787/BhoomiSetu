@@ -1,53 +1,12 @@
-const stages = [
-  "Notification",
-  "Verification",
-  "Objection",
-  "Award",
-  "Compensation",
-  "Possession",
-];
+import { ArrowRight, CheckCircle2, MapPinned, ShieldCheck, Sparkles } from "lucide-react";
+import Link from "next/link";
+
+const outcomes = ["Transparent six-stage case tracking", "Role-based accountability", "GIS parcel intelligence", "AI-assisted document review"];
 
 export default function HomePage() {
-  return (
-    <main>
-      <nav className="nav" aria-label="Main navigation">
-        <a className="brand" href="#top" aria-label="BhoomiSetu home">
-          <span className="brandMark">भू</span>
-          <span>BhoomiSetu</span>
-        </a>
-        <span className="prototype">Prototype foundation</span>
-      </nav>
-
-      <section className="hero" id="top">
-        <div className="eyebrow">SIH26016 · Project foundation ready</div>
-        <h1>Every land-acquisition case should have a clear next step.</h1>
-        <p className="intro">
-          BhoomiSetu will help citizens and officers follow one accountable case timeline—from
-          notification to possession.
-        </p>
-
-        <div className="statusCard">
-          <div>
-            <span className="statusDot" aria-hidden="true" />
-            <strong>Setup complete</strong>
-          </div>
-          <p>The application shell is ready. Case data and login come next.</p>
-        </div>
-      </section>
-
-      <section className="journey" aria-labelledby="journey-title">
-        <p className="sectionLabel">Planned case journey</p>
-        <h2 id="journey-title">One timeline, visible to everyone responsible.</h2>
-        <ol className="stageList">
-          {stages.map((stage, index) => (
-            <li key={stage}>
-              <span>{String(index + 1).padStart(2, "0")}</span>
-              {stage}
-            </li>
-          ))}
-        </ol>
-      </section>
-    </main>
-  );
+  return <main className="landing">
+    <nav className="landingNav"><a className="brand" href="#top"><span className="brandMark">भू</span><span>BhoomiSetu<small>भूमि से विश्वास तक</small></span></a><Link className="button secondary" href="/login">Open portal</Link></nav>
+    <section className="landingHero" id="top"><div><p className="eyebrow"><Sparkles size={15} /> SIH26016 · Digital land acquisition</p><h1>Clarity for every family.<br /><em>Accountability at every step.</em></h1><p className="intro">A single trusted platform connecting landowners, field officers and government leaders—from first notification to fair compensation and possession.</p><div className="heroActions"><Link className="button primary" href="/login">Enter BhoomiSetu <ArrowRight size={18} /></Link><span><i /> Phase 1 foundation verified</span></div></div><div className="heroPanel"><div className="miniMap"><MapPinned size={42} /><span>Kharadi Bypass</span><small>20 mapped acquisition parcels</small></div><div className="trustRow"><ShieldCheck /><span><strong>Tamper-evident</strong><small>Every action leaves an audit trail</small></span></div></div></section>
+    <section className="outcomes"><p className="sectionLabel">One connected source of truth</p><div>{outcomes.map((item) => <article key={item}><CheckCircle2 /><h2>{item}</h2><p>Built for real-world public administration and citizen confidence.</p></article>)}</div></section>
+  </main>;
 }
-

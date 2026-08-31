@@ -5,15 +5,15 @@ import HomePage from "./page";
 
 
 describe("HomePage", () => {
-  it("explains that the project foundation is ready", () => {
+  it("introduces the BhoomiSetu role portal", () => {
     render(<HomePage />);
 
     expect(
       screen.getByRole("heading", {
-        name: "Every land-acquisition case should have a clear next step.",
+        name: "Clarity for every family. Accountability at every step.",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByText("Setup complete")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Enter BhoomiSetu" })).toHaveAttribute("href", "/login");
+    expect(screen.getByText("Phase 1 foundation verified")).toBeInTheDocument();
   });
 });
-
