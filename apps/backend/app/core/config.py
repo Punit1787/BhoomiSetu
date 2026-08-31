@@ -7,6 +7,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_environment: str = "development"
     frontend_origin: str = "http://localhost:3000"
+    openai_api_key: str | None = None
+    openai_vision_model: str = "gpt-4o-mini"
     database_url: str = "postgresql+asyncpg://punit@localhost:5432/bhoomsetu"
     jwt_secret: str = "local-development-access-secret-change-before-deploy"
     jwt_refresh_secret: str = "local-development-refresh-secret-change-before-deploy"
