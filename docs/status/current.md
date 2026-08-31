@@ -2,30 +2,30 @@
 
 ## Completed
 
-- Project moved to `/Users/punit/Documents/Codex/BhoomiSetu`.
-- PostgreSQL 17 and PostGIS 3.6 installed and running locally.
-- Phase 1 backend implemented: schema, migration, JWT auth, five roles, RBAC,
-  project/parcel/landowner/case APIs, workflow transitions, history, and audit writes.
-- Local demo and isolated test databases created.
-- Five demo accounts and twenty varied cases seeded.
-- CI updated to run against PostGIS.
-- Backend runs locally at `http://127.0.0.1:8000` with docs at `/docs`.
+- Phases 1–5 implemented and saved as separate Git checkpoints.
+- Five role portals, mobile officer workflow and 20-polygon Leaflet/PostGIS map.
+- OCR/vision extraction pipeline, grievance routing and mandatory human confirmation.
+- Two trained procedural timeline models with feature importance and aggregation.
+- API Setu/NGDRS fixtures, Supabase client/SQL wiring and audit-chain verification.
+- GitHub Actions, deterministic reset, production-mode offline start, demo script,
+  Q&A pack and editable 11-slide pitch deck.
 
 ## Verification
 
 - Ruff passed.
-- Fourteen backend tests passed, including the complete Phase 1 case journey.
-- Live health check, OpenAPI generation, and officer login passed.
-- Frontend lint, test, and production build passed before Phase 1 work.
+- 17 backend integration tests pass.
+- Frontend lint, component test, TypeScript and optimized production build pass.
+- Citizen desktop, officer 390×844 and authority 20-polygon GIS browser QA pass.
+- Offline reset/start verified on temporary ports; API health and frontend return 200.
+- Pitch deck individually inspected and structural overflow test passed.
 
 ## Next task
 
-Choose one:
-
-1. Complete Phase 1 public deployment after the user selects/signs into a host.
-2. Begin Phase 2 with the shared frontend shell and real login flow.
+Activate a hosting plan or provide alternate Render/Supabase/Vercel accounts, then
+deploy, set secrets, run the Supabase realtime SQL, and perform the final two-window
+hosted rehearsal.
 
 ## Known blocker
 
-- Public deployment requires an external hosting account and deployment decision.
-
+- Railway authentication succeeded, but project creation is refused because the
+  account trial expired. No billing decision was made on the user’s behalf.

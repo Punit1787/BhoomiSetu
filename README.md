@@ -4,16 +4,9 @@ BhoomiSetu is a prototype land-acquisition case management system for SIH26016.
 It is designed as an orchestration layer over existing government systems, not as
 a replacement for them.
 
-## First goal
+## Current result
 
-Build one reliable demonstration:
-
-1. A user opens the application.
-2. A citizen views a seeded land-acquisition case.
-3. An officer advances the case to the next legal stage.
-4. The citizen view shows the new status.
-
-Everything else is added only after this path works.
+All five planned implementation phases are complete locally: foundation, five role portals, AI/ML/GIS, interoperability/realtime/audit, and demo operations. Public hosting is deployment-ready but blocked by the signed-in Railway account’s expired trial.
 
 ## What is in this repository?
 
@@ -23,18 +16,32 @@ Everything else is added only after this path works.
 - `docs/product`: the current, simplified product scope.
 - `docs/architecture`: technical boundaries and decisions.
 - `docs/status/current.md`: the short handoff future Codex tasks should read.
-- `infra`: deployment and local infrastructure files (added later).
+- `infra`: Supabase realtime and deployment infrastructure.
+- `scripts`: one-command demo reset and offline launch.
+- `docs/pitch`: editable final pitch deck.
 
 ## What works today?
 
-This first setup provides a backend health endpoint and a frontend welcome page.
-It deliberately does not yet contain authentication, a database, or real case
-management. See `docs/status/current.md` for the next task.
+The application includes five-role JWT/RBAC, a six-stage acquisition workflow,
+20 OSM-derived PostGIS parcels, five polished portals, document OCR/AI hooks,
+grievance routing, two predictive timeline models, API Setu-shaped fixtures,
+realtime client wiring and a verifiable tamper-evident audit chain.
 
 ## Local setup
 
 You need Node.js 20+, Python 3.13, Git, PostgreSQL 17, and PostGIS. They are
 installed on this Mac. Supabase is not required for local Phase 1 development.
+
+### Fastest offline demo
+
+```bash
+./scripts/start_demo.sh
+```
+
+This migrates and seeds the database, retrains both deterministic models, builds
+the production frontend, and launches the API and web app. Press `Ctrl+C` once
+to stop both services. Use `./scripts/reset_demo.sh` when you only need a clean
+demo state.
 
 ### Run the backend
 
