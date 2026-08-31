@@ -385,6 +385,10 @@ textarea { min-height: 100px; margin-bottom: 10px; resize: vertical; }
 .selectedParcel strong { margin-top: 2px; font-size: .68rem; }
 .interopButton { display: flex; width: 100%; min-height: 48px; align-items: center; gap: 9px; padding: 0 12px; color: white; background: var(--navy); border: 0; border-radius: 8px; cursor: pointer; font-size: .7rem; font-weight: 700; }
 .interopButton svg:last-child { margin-left: auto; }
+.interopResult { display: flex; gap: 3px; margin-bottom: 9px; padding: 11px; flex-direction: column; color: var(--navy); background: #edf5f0; border: 1px solid #c9ded2; border-radius: 8px; }
+.interopResult strong { font-size: .72rem; }
+.interopResult span { font-size: .64rem; }
+.interopResult small { margin-top: 3px; color: #8a5b20; font-size: .56rem; font-weight: 700; }
 .districtRows button, .leadershipActions button { display: grid; width: 100%; grid-template-columns: 1fr auto 24px; align-items: center; gap: 15px; padding: 14px 4px; background: transparent; border: 0; border-top: 1px solid #e7eae5; cursor: pointer; text-align: left; }
 .districtRows span { display: flex; gap: 3px; flex-direction: column; }
 .districtRows span:nth-child(2) { text-align: right; }

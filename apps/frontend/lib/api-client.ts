@@ -1,5 +1,10 @@
 import { useAuthStore } from "./auth-store";
-import type { AuthTokens, CaseDetail, CaseSummary } from "./types";
+import type {
+  AuthTokens,
+  CaseDetail,
+  CaseSummary,
+  LandRecordFixture,
+} from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
@@ -17,27 +22,43 @@ async function refreshAccessToken(): Promise<string | null> {
   return tokens.access_token;
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+export async function apiFetch<T>(
+  path: string,
+  init: RequestInit = {},
+  retry = true,
+): Promise<T> {
   const token = useAuthStore.getState().accessToken;
   const headers = new Headers(init.headers);
-  if (!(init.body instanceof FormData)) headers.set("Content-Type", "application/json");
+  if (!(init.body instanceof FormData))
+    headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${API_URL}${path}`, { ...init, headers });
   if (response.status === 401 && retry) {
     const refreshed = await refreshAccessToken();
     if (refreshed) return apiFetch<T>(path, init, false);
   }
-  if (!response.ok) throw new Error((await response.text()) || `Request failed: ${response.status}`);
+  if (!response.ok)
+    throw new Error(
+      (await response.text()) || `Request failed: ${response.status}`,
+    );
   return response.json() as Promise<T>;
 }
 
 export const api = {
-  login: (email: string, password: string) => apiFetch<AuthTokens>("/auth/login", {
-    method: "POST", body: JSON.stringify({ email, password }),
-  }),
+  login: (email: string, password: string) =>
+    apiFetch<AuthTokens>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
   cases: () => apiFetch<CaseSummary[]>("/cases"),
   caseDetail: (id: string) => apiFetch<CaseDetail>(`/cases/${id}`),
-  transition: (id: string, notes: string) => apiFetch<CaseSummary>(`/cases/${id}/transition`, {
-    method: "POST", body: JSON.stringify({ notes }),
-  }),
+  transition: (id: string, notes: string) =>
+    apiFetch<CaseSummary>(`/cases/${id}/transition`, {
+      method: "POST",
+      body: JSON.stringify({ notes }),
+    }),
+  landRecord: (surveyNumber: string) =>
+    apiFetch<LandRecordFixture>(
+      `/integrations/apisetu/land-records/${surveyNumber}`,
+    ),
 };

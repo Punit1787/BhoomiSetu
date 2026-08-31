@@ -1,4 +1,5 @@
-export type Role = "landowner" | "officer" | "authority" | "district_admin" | "senior_admin";
+export type Role =
+  "landowner" | "officer" | "authority" | "district_admin" | "senior_admin";
 
 export type CaseStage =
   | "notification"
@@ -55,4 +56,13 @@ export interface ParcelFeature {
   case_id: string;
   stage: CaseStage;
   coordinates: [number, number][];
+}
+
+export interface LandRecordFixture {
+  source: { is_fixture: boolean; notice: string; intended_provider: string };
+  survey_number: string;
+  owner: { name: string; relationship: string };
+  area: { value: number; unit: string };
+  land_use_classification: string;
+  encumbrance: { has_encumbrance: boolean; status: string };
 }
