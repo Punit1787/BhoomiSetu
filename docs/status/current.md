@@ -43,4 +43,5 @@ Updated: 2026-09-01 Asia/Kolkata
 - No secrets or real citizen data belong in Git.
 - Remote `origin/main` predates the crisp redesign; current work remains local until
   the user explicitly approves private GitHub egress. Resume from local commit
-  `74e1aed`.
+  `0bf7b46` (the implementation checkpoint); the following status-only commit may
+  sit on top of it.
