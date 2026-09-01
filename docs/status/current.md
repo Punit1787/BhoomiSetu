@@ -28,6 +28,9 @@ Updated: 2026-09-01 Asia/Kolkata
   high-risk across 20 cases and a 58.5-day compensation-timeline average.
 - Production-build citizen QA proves one linked case and the normalized persisted
   verification-stage timeline.
+- Production-build citizen QA also proves an authenticated grievance write and
+  classification (`compensation`, `low`, Compensation & Treasury Cell) plus an
+  actual generated PNG upload through Tesseract OCR at 90% extraction confidence.
 - Local backend/frontend verification services were stopped cleanly.
 
 ## Resume exactly here
@@ -35,12 +38,9 @@ Updated: 2026-09-01 Asia/Kolkata
 1. Start backend on 8001 with `FRONTEND_ORIGIN=http://127.0.0.1:3100`.
 2. Build frontend with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001`, then start
    it on 3100.
-3. Submit one real citizen grievance and one generated synthetic image document;
-   confirm the returned classification/extraction on screen.
-4. With explicit approval to clear current synthetic demo interactions, run the
+3. With explicit approval to clear current synthetic demo interactions, run the
    revised `scripts/seed_data.py` twice and prove the restored state is identical.
-5. Rerun `./scripts/check.sh`, update `docs/status/phase-audit.md`, and commit.
-6. External completion still needs explicit approval: push private source, deploy
+4. External completion still needs explicit approval: push private source, deploy
    Render/Vercel, migrate/seed Supabase, enable realtime, run two-window CDC QA,
    and record five human rehearsals.
 
