@@ -9,10 +9,18 @@ services:
       - key: APP_ENVIRONMENT
         value: production
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: bhoomsetu-db
+          property: connectionString
       - key: FRONTEND_ORIGIN
         sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_REFRESH_SECRET
         generateValue: true
+
+databases:
+  - name: bhoomsetu-db
+    plan: free
+    databaseName: bhoomsetu
+    user: bhoomsetu

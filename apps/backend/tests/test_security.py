@@ -35,3 +35,12 @@ def test_refresh_token_cannot_be_used_as_access_token() -> None:
 def test_production_rejects_default_development_secrets() -> None:
     with pytest.raises(ValidationError, match="must be changed"):
         Settings(app_environment="production", _env_file=None)
+
+
+def test_provider_database_url_uses_async_driver() -> None:
+    settings = Settings(
+        database_url="postgresql://demo:secret@db.example.test/bhoomsetu",
+        _env_file=None,
+    )
+
+    assert settings.database_url.startswith("postgresql+asyncpg://")
