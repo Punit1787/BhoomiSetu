@@ -32,4 +32,5 @@ Updated: 2026-09-01 Asia/Kolkata
 - ML uses synthetic data and never predicts land value or legal outcomes.
 - No secrets or real citizen data belong in Git.
 - Latest pushed remote checkpoint predates the crisp redesign; current work is local
-  until the user explicitly approves private GitHub egress.
+  until the user explicitly approves private GitHub egress. The verified local
+  implementation/audit checkpoint is commit `f550938`.
