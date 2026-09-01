@@ -2,7 +2,7 @@
 
 import { Building2, ChevronRight, CircleUserRound, FileClock, Gauge, Home, Landmark, LogOut, Map, Menu, Scale, ShieldCheck, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import { stageLabel } from "@/lib/demo-data";
 import type { Role } from "@/lib/types";
@@ -15,6 +15,13 @@ export function PortalShell({ role, title, subtitle, children }: { role: Role; t
   const user = useAuthStore((state) => state.user);
   const demoMode = useAuthStore((state) => state.demoMode);
   const [open, setOpen] = useState(false);
+  const [clock, setClock] = useState("");
+  useEffect(() => {
+    const updateClock = () => setClock(new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()));
+    updateClock();
+    const timer = window.setInterval(updateClock, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const Icon = roleIcon[role];
   const links = [
     { label: "Overview", icon: Gauge }, { label: "Cases", icon: FileClock },
@@ -31,7 +38,12 @@ export function PortalShell({ role, title, subtitle, children }: { role: Role; t
         <div className="sideFooter"><span><CircleUserRound size={18} /><span><strong>{user?.full_name ?? "Demo User"}</strong><small>{demoMode ? "Demo data mode" : "Live API"}</small></span></span><button aria-label="Log out" onClick={() => { logout(); router.push("/login"); }}><LogOut size={18} /></button></div>
       </aside>
       <main className="portalMain">
-        <header className="portalHeader"><button className="menuButton" onClick={() => setOpen(true)}><Menu /></button><div><p>{stageLabel(role)} workspace</p><h1>{title}</h1><span>{subtitle}</span></div><div className={`livePill ${demoMode ? "demo" : ""}`}><i />{demoMode ? "Demo fallback" : "Live system"}</div></header>
+        <header className="portalHeader"><button className="menuButton" onClick={() => setOpen(true)}><Menu /></button><div><p>{stageLabel(role)} workspace</p><h1>{title}</h1><span>{subtitle}</span></div><div className={`livePill ${demoMode ? "demo" : ""}`}><i />{demoMode ? "Demo fallback" : "Live API"}</div></header>
+        <section className="systemPulse" aria-label="System status">
+          <span><i className={demoMode ? "pulseAmber" : ""} /><small>Data source</small><strong>{demoMode ? "Synthetic demo" : "FastAPI + Postgres"}</strong></span>
+          <span><i /><small>Map engine</small><strong>PostGIS · OSM</strong></span>
+          <span><i /><small>Workspace clock</small><strong>{clock || "Syncing…"}</strong></span>
+        </section>
         {children}
       </main>
     </div>

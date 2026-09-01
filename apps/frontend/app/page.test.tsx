@@ -10,10 +10,10 @@ describe("HomePage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Clarity for every family. Accountability at every step.",
+        name: "Clarity for every family. Control for every decision.",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Enter BhoomiSetu" })).toHaveAttribute("href", "/login");
-    expect(screen.getByText("Phase 1 foundation verified")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Enter command centre" })).toHaveAttribute("href", "/login");
+    expect(screen.getByText("Core platform verified")).toBeInTheDocument();
   });
 });
