@@ -19,18 +19,20 @@ def predict(name: str, features: dict[str, Any]) -> PredictionResponse:
     bundle = load_bundle(name)
     pipeline = bundle["pipeline"]
     days = max(1, round(float(pipeline.predict(pd.DataFrame([features]))[0])))
-    importances = pipeline.named_steps["model"].feature_importances_
-    ranked = sorted(
-        zip(bundle["feature_names"], importances, strict=True),
-        key=lambda item: item[1],
-        reverse=True,
-    )[:3]
+    reference = bundle["reference_values"]
+    effects = []
+    for feature, reference_value in reference.items():
+        counterfactual = {**features, feature: reference_value}
+        comparison = float(pipeline.predict(pd.DataFrame([counterfactual]))[0])
+        effects.append((feature, abs(float(days) - comparison)))
+    ranked = sorted(effects, key=lambda item: item[1], reverse=True)[:3]
+    total_effect = sum(value for _, value in ranked) or 1.0
     top = [
         FeatureContribution(
-            feature=name.replace("categorical__", "").replace("numeric__", ""),
-            importance=round(float(value), 4),
+            feature=feature,
+            importance=round(float(value) / total_effect, 4),
         )
-        for name, value in ranked
+        for feature, value in ranked
     ]
     risk = "high" if days >= 150 else "medium" if days >= 75 else "low"
     return PredictionResponse(
@@ -38,4 +40,5 @@ def predict(name: str, features: dict[str, Any]) -> PredictionResponse:
         risk_band=risk,
         top_features=top,
         model_version=bundle["version"],
+        holdout_mae_days=bundle["metrics"]["mae_days"],
     )

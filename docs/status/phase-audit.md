@@ -47,7 +47,8 @@ Result: **4 technical criteria proven; presenter rehearsal criterion pending.**
   human-confirmed.
 - PASS — grievance classification returns category, priority and department.
 - PASS — both deterministic Random Forest bundles load and return predictions with
-  top feature importances.
+  per-case sensitivity drivers, explicit synthetic-data disclosure and recorded
+  holdout metrics.
 - PASS — aggregate prediction and PostGIS intersection endpoints operate against
   stored cases/polygons.
 - PENDING (human) — the presenting team must rehearse the responsible explanation

@@ -973,6 +973,9 @@ button, input, textarea, select { color-scheme: light; }
 .riskScore { color: #8a4b00; background: #fff2df; border-color: #f2d09b; }
 .riskBars i { background: #e5e7eb; }
 .riskBars em { background: #175cd3; box-shadow: none; }
+.modelDisclosure { width: min(1360px, calc(100% - 32px)); margin: 14px auto 0; color: #666a73; font-size: .72rem; line-height: 1.5; }
+.modelNote { display: block; padding-top: 8px; color: #666a73; font-size: .66rem; line-height: 1.5; }
+.modelResult small { color: #6a4a13; line-height: 1.4; }
 .seniorHero h2 em { color: #175cd3; background: none; }
 .mobileAction { background: #0b0c0f; border: 0; box-shadow: 0 10px 35px rgb(0 0 0 / 18%); }
 

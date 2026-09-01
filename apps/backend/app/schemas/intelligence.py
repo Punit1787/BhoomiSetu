@@ -60,7 +60,10 @@ class PredictionResponse(BaseModel):
     predicted_days_remaining: int
     risk_band: Literal["low", "medium", "high"]
     top_features: list[FeatureContribution]
-    model_version: str = "phase3-rf-v1"
+    model_version: str = "phase3-rf-v2"
+    training_data: Literal["synthetic"] = "synthetic"
+    validated_on_real_data: bool = False
+    holdout_mae_days: float
 
 
 class AggregatePredictionResponse(BaseModel):

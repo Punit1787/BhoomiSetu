@@ -19,6 +19,10 @@ Updated: 2026-09-01 Asia/Kolkata
   is fetched and normalized from `changed_at/reason` to the timeline model.
 - Backend Ruff and all 17 PostgreSQL/PostGIS tests pass.
 - Frontend ESLint, 6 Vitest contract tests, TypeScript and production build pass.
+- ML v2 records a reproducible model card and exposes honest synthetic-data,
+  real-validation and holdout-MAE metadata through the prediction contract.
+- The authority portal now displays a live per-case prediction with case-specific
+  sensitivity drivers; the senior portal consumes the aggregate prediction API.
 - Local backend/frontend verification services were stopped cleanly.
 
 ## Resume exactly here
@@ -28,10 +32,10 @@ Updated: 2026-09-01 Asia/Kolkata
    it on 3100.
 3. Browser-check the latest citizen detail timeline, then submit one real grievance
    and one image document; confirm the returned classification/extraction on screen.
-4. Fix `scripts/seed_data.py`: when the demo project already exists it currently
-   updates polygons and returns, so `reset_demo.sh` does not restore mutated stages.
-   Make reset deterministic and add a regression test.
-5. Rerun `./scripts/check.sh`, update `docs/status/phase-audit.md`, and commit.
+4. With explicit approval to clear current synthetic demo interactions, run the
+   revised `scripts/seed_data.py` twice and prove the restored state is identical.
+5. Browser-check the authority prediction disclosure and senior live aggregate.
+6. Rerun `./scripts/check.sh`, update `docs/status/phase-audit.md`, and commit.
 6. External completion still needs explicit approval: push private source, deploy
    Render/Vercel, migrate/seed Supabase, enable realtime, run two-window CDC QA,
    and record five human rehearsals.

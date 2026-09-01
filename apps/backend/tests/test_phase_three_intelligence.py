@@ -119,6 +119,25 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
         assert prediction.status_code == 200, prediction.text
         assert prediction.json()["predicted_days_remaining"] > 0
         assert len(prediction.json()["top_features"]) == 3
+        assert prediction.json()["model_version"] == "phase3-rf-v2"
+        assert prediction.json()["training_data"] == "synthetic"
+        assert prediction.json()["validated_on_real_data"] is False
+        assert prediction.json()["holdout_mae_days"] > 0
+        assert all(
+            item["feature"]
+            in {
+                "project_type",
+                "state",
+                "district",
+                "current_stage",
+                "parcel_count",
+                "objection_count",
+                "document_turnaround_days",
+                "officer_open_load",
+                "days_in_compensation",
+            }
+            for item in prediction.json()["top_features"]
+        )
 
     aggregate = client.get(
         "/predictions/aggregate?state=Maharashtra&project_type=Highway",

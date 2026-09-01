@@ -1,5 +1,7 @@
-"""Train BhoomiSetu's two procedural timeline models on reproducible synthetic history."""
+"""Train and evaluate BhoomiSetu's procedural models on reproducible synthetic history."""
 
+import hashlib
+import json
 from pathlib import Path
 
 import joblib
@@ -7,6 +9,8 @@ import numpy as np
 import pandas as pd
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import mean_absolute_error, r2_score, root_mean_squared_error
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
 
@@ -68,7 +72,7 @@ def generate_history(rows: int = 1800, seed: int = 26016) -> pd.DataFrame:
     return frame
 
 
-def train(frame: pd.DataFrame, target: str) -> dict:
+def build_pipeline() -> Pipeline:
     preprocess = ColumnTransformer(
         [
             (
@@ -79,7 +83,7 @@ def train(frame: pd.DataFrame, target: str) -> dict:
             ("numeric", "passthrough", NUMERIC),
         ]
     )
-    pipeline = Pipeline(
+    return Pipeline(
         [
             ("preprocess", preprocess),
             (
@@ -94,18 +98,89 @@ def train(frame: pd.DataFrame, target: str) -> dict:
             ),
         ]
     )
+
+
+def evaluate(frame: pd.DataFrame, target: str) -> dict[str, float | int]:
+    training, holdout = train_test_split(frame, test_size=0.2, random_state=26016)
+    pipeline = build_pipeline()
+    pipeline.fit(training[CATEGORICAL + NUMERIC], training[target])
+    estimated = pipeline.predict(holdout[CATEGORICAL + NUMERIC])
+    baseline = np.repeat(training[target].median(), len(holdout))
+    return {
+        "holdout_rows": len(holdout),
+        "mae_days": round(float(mean_absolute_error(holdout[target], estimated)), 2),
+        "rmse_days": round(float(root_mean_squared_error(holdout[target], estimated)), 2),
+        "r2": round(float(r2_score(holdout[target], estimated)), 3),
+        "baseline_mae_days": round(float(mean_absolute_error(holdout[target], baseline)), 2),
+    }
+
+
+def train(
+    frame: pd.DataFrame,
+    target: str,
+    metrics: dict[str, float | int],
+    dataset_sha256: str,
+) -> dict:
+    pipeline = build_pipeline()
     pipeline.fit(frame[CATEGORICAL + NUMERIC], frame[target])
     feature_names = list(pipeline.named_steps["preprocess"].get_feature_names_out())
-    return {"pipeline": pipeline, "feature_names": feature_names, "version": "phase3-rf-v1"}
+    references = {
+        **{column: str(frame[column].mode().iloc[0]) for column in CATEGORICAL},
+        **{column: float(frame[column].median()) for column in NUMERIC},
+    }
+    return {
+        "pipeline": pipeline,
+        "feature_names": feature_names,
+        "reference_values": references,
+        "metrics": metrics,
+        "training_rows": len(frame),
+        "dataset_sha256": dataset_sha256,
+        "synthetic_training_data": True,
+        "version": "phase3-rf-v2",
+    }
 
 
 if __name__ == "__main__":
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     history = generate_history()
-    history.to_csv(DATA_DIR / "synthetic_case_history.csv", index=False)
-    joblib.dump(train(history, "delay_days_remaining"), MODEL_DIR / "delay_model.joblib")
-    joblib.dump(
-        train(history, "compensation_days"), MODEL_DIR / "compensation_timeline_model.joblib"
+    dataset_path = DATA_DIR / "synthetic_case_history.csv"
+    history.to_csv(dataset_path, index=False)
+    dataset_sha256 = hashlib.sha256(dataset_path.read_bytes()).hexdigest()
+    model_targets = {
+        "delay_model.joblib": "delay_days_remaining",
+        "compensation_timeline_model.joblib": "compensation_days",
+    }
+    evaluations = {target: evaluate(history, target) for target in model_targets.values()}
+    for filename, target in model_targets.items():
+        joblib.dump(
+            train(history, target, evaluations[target], dataset_sha256), MODEL_DIR / filename
+        )
+    model_card = {
+        "version": "phase3-rf-v2",
+        "dataset": {
+            "name": "BhoomiSetu reproducible synthetic case history",
+            "rows": len(history),
+            "sha256": dataset_sha256,
+            "seed": 26016,
+            "real_records": 0,
+        },
+        "holdout": {"method": "80/20 split", "random_state": 26016},
+        "metrics": evaluations,
+        "intended_use": [
+            "procedural delay-risk triage",
+            "compensation-disbursal timeline planning",
+        ],
+        "prohibited_use": [
+            "land valuation or compensation amount calculation",
+            "legal, ownership, eligibility, or payment decisions",
+            "claims of real-world accuracy before approved historical validation",
+        ],
+    }
+    (DATA_DIR / "model_card.json").write_text(
+        json.dumps(model_card, indent=2, sort_keys=True) + "\n"
     )
-    print(f"trained 2 models on {len(history)} reproducible synthetic cases")
+    print(
+        f"trained 2 models on {len(history)} reproducible synthetic cases; "
+        f"holdout metrics written to {DATA_DIR / 'model_card.json'}"
+    )

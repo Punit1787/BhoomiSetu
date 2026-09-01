@@ -95,3 +95,20 @@ export interface GrievanceResult {
   };
   human_confirmation_required: boolean;
 }
+
+export interface PredictionResult {
+  predicted_days_remaining: number;
+  risk_band: "low" | "medium" | "high";
+  top_features: Array<{ feature: string; importance: number }>;
+  model_version: string;
+  training_data: "synthetic";
+  validated_on_real_data: false;
+  holdout_mae_days: number;
+}
+
+export interface AggregatePrediction {
+  case_count: number;
+  high_risk_pct: number;
+  avg_disbursal_days: number;
+  trend: "up" | "stable" | "down";
+}

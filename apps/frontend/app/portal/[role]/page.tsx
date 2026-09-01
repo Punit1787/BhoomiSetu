@@ -409,6 +409,13 @@ function AuthorityView({ cases }: { cases: CaseDetail[] }) {
     notice: string;
   } | null>(null);
   const [checking, setChecking] = useState(false);
+  const selectedLiveCase =
+    cases.find((item) => item.id === selectedCase) ?? cases[0];
+  const delayQuery = useQuery({
+    queryKey: ["prediction", "delay", selectedLiveCase?.id],
+    queryFn: () => api.delayPrediction(selectedLiveCase!.id),
+    enabled: !demoMode && !!selectedLiveCase,
+  });
   const checkLandRecord = async () => {
     setChecking(true);
     try {
@@ -505,6 +512,13 @@ function AuthorityView({ cases }: { cases: CaseDetail[] }) {
               </strong>
             </span>
           </div>
+          {delayQuery.data && (
+            <div className="interopResult modelResult" role="status">
+              <strong>{delayQuery.data.risk_band} delay risk · {delayQuery.data.predicted_days_remaining} days remaining</strong>
+              <span>Case drivers: {delayQuery.data.top_features.map((item) => item.feature.replaceAll("_", " ")).join(", ")}</span>
+              <small>Synthetic-trained {delayQuery.data.model_version} · holdout MAE {delayQuery.data.holdout_mae_days} days · not validated on real records</small>
+            </div>
+          )}
           {record && (
             <div className="interopResult" role="status">
               <strong>{record.owner}</strong>
@@ -625,7 +639,24 @@ function DistrictView({ cases }: { cases: CaseDetail[] }) {
   );
 }
 
-function SeniorView() {
+function SeniorView({ demoMode }: { demoMode: boolean }) {
+  const aggregateQuery = useQuery({
+    queryKey: ["predictions", "aggregate"],
+    queryFn: api.aggregatePredictions,
+    enabled: !demoMode,
+  });
+  const aggregate = aggregateQuery.data;
+  const onTrack = aggregate ? Math.max(0, Math.round(100 - aggregate.high_risk_pct)) : 74;
+  const riskRows: Array<[string, number]> = demoMode
+    ? [
+        ["Maharashtra highways", 38],
+        ["Urban transit", 27],
+        ["Irrigation", 19],
+        ["Industrial corridors", 12],
+      ]
+    : aggregate
+      ? [[`All ${aggregate.case_count} visible cases`, aggregate.high_risk_pct]]
+      : [];
   const fields = [
     ["Area notified", "252 ha", "up 8.2%"],
     ["Area acquired", "186 ha", "73.8% complete"],
@@ -640,13 +671,13 @@ function SeniorView() {
         <div>
           <p className="sectionLabel">National programme pulse</p>
           <h2>
-            Land acquisition is <em>74% on track</em> across monitored projects.
+            Land acquisition is <em>{onTrack}% on track</em> across monitored projects.
           </h2>
         </div>
         <div className="riskScore">
-          <span>26</span>
+          <span>{aggregate ? `${Math.round(aggregate.high_risk_pct)}%` : "26"}</span>
           <small>
-            cases at
+            {aggregate ? "cases at" : "demo cases at"}
             <br />
             high delay risk
           </small>
@@ -661,6 +692,7 @@ function SeniorView() {
           </article>
         ))}
       </section>
+      <p className="modelDisclosure">National MIS values are a synthetic demonstration scenario. {demoMode ? "Predictive values are demo fixtures." : "The predictive card below is calculated live from the synthetic-trained model endpoint."}</p>
       <section className="contentGrid seniorGrid">
         <div className="panel">
           <div className="panelHead">
@@ -671,12 +703,7 @@ function SeniorView() {
             <StatusBadge value="model_active" />
           </div>
           <div className="riskBars">
-            {[
-              ["Maharashtra highways", 38],
-              ["Urban transit", 27],
-              ["Irrigation", 19],
-              ["Industrial corridors", 12],
-            ].map(([label, value]) => (
+            {riskRows.map(([label, value]) => (
               <div key={label}>
                 <span>
                   <strong>{label}</strong>
@@ -687,6 +714,7 @@ function SeniorView() {
                 </i>
               </div>
             ))}
+            {!demoMode && aggregate && <small className="modelNote">Average predicted compensation-disbursal timeline: {aggregate.avg_disbursal_days} days. Synthetic training data; real-world accuracy is not claimed.</small>}
           </div>
         </div>
         <div className="panel">
@@ -786,7 +814,7 @@ export default function RolePortal() {
       {role === "officer" && <OfficerView cases={cases} demoMode={demoMode} />}
       {role === "authority" && <AuthorityView cases={cases} />}
       {role === "district_admin" && <DistrictView cases={cases} />}
-      {role === "senior_admin" && <SeniorView />}
+      {role === "senior_admin" && <SeniorView demoMode={demoMode} />}
     </PortalShell>
   );
 }

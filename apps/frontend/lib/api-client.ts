@@ -6,6 +6,8 @@ import type {
   DocumentExtraction,
   GrievanceResult,
   LandRecordFixture,
+  PredictionResult,
+  AggregatePrediction,
 } from "./types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
@@ -113,6 +115,12 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ description }),
     }),
+  delayPrediction: (id: string) =>
+    apiFetch<PredictionResult>(`/cases/${id}/prediction/delay`),
+  compensationPrediction: (id: string) =>
+    apiFetch<PredictionResult>(`/cases/${id}/prediction/compensation-timeline`),
+  aggregatePredictions: () =>
+    apiFetch<AggregatePrediction>("/predictions/aggregate"),
   landRecord: (surveyNumber: string) =>
     apiFetch<LandRecordFixture>(
       `/integrations/apisetu/land-records/${surveyNumber}`,
