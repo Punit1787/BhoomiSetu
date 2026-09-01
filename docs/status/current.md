@@ -27,11 +27,10 @@ Updated: 2026-09-01 Asia/Kolkata
 
 1. Inspect the redesigned landing, login, authority desktop and officer mobile
    screens in a browser; fix any visual regressions.
-2. Commit and push the overhaul checkpoint.
-3. Resume hosting: Render backend first, then set Supabase connection/realtime,
+2. Resume hosting: Render backend first, then set Supabase connection/realtime,
    then Vercel frontend. Browser navigation to Render was blocked only because
    the Codex browser-control usage allowance was exhausted, not by the project.
-4. After backend migrations create `cases`, `documents` and `grievances`, run
+3. After backend migrations create `cases`, `documents` and `grievances`, run
    `infra/supabase/realtime.sql` and perform a two-window change test.
 
 ## Secrets and blockers
@@ -42,5 +41,4 @@ Updated: 2026-09-01 Asia/Kolkata
   enabled. Render Free is the selected backend alternative.
 - API Setu/NGDRS data is intentionally fixture-only until official publisher
   approval is granted.
-- `apps/frontend/next-env.d.ts` was already modified by Next.js dev tooling before
-  this overhaul; it is generated and should be handled with the frontend commit.
+- UI overhaul checkpoint is commit `148544d` and is pushed to `origin/main`.
