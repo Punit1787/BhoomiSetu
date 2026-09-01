@@ -2,7 +2,9 @@
 
 ## Backend requirements
 
-The backend container runs the latest Alembic migration before starting FastAPI.
+The backend container runs the latest Alembic migration, creates the synthetic
+showcase only when it is absent, and then starts FastAPI. Container restarts do not
+reset persisted interactions.
 The host must provide:
 
 - `DATABASE_URL` using the `postgresql+asyncpg://` driver form
@@ -54,3 +56,10 @@ After deployment, verify:
 3. Alembic reports the latest revision.
 4. A seeded officer can log in.
 5. The frontend origin is allowed by CORS.
+
+## Secrets and teammate access
+
+Grant teammates access to the private GitHub, Render, Vercel and Supabase projects
+using each platform's member controls. Do not share one personal login. Store
+deployment values only in provider environment settings; local files are created
+from the committed `.env.example` templates. See [`team-setup.md`](team-setup.md).

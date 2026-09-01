@@ -1,66 +1,67 @@
 # BhoomiSetu
 
-BhoomiSetu is a prototype land-acquisition case management system for SIH26016.
-It is designed as an orchestration layer over existing government systems, not as
-a replacement for them.
+**Transparent, GIS-enabled land-acquisition workflow orchestration for SIH26016.**
 
-## Current result
+BhoomiSetu connects landowners, field officers, project authorities and government
+administrators around one auditable six-stage acquisition journey. It complements
+existing government systems through adapters; it does not replace statutory land
+records or automate legal decisions.
 
-All five planned implementation phases are complete locally: foundation, five role portals, AI/ML/GIS, interoperability/realtime/audit, and demo operations. Public hosting is deployment-ready but blocked by the signed-in Railway account’s expired trial.
+## Showcase
 
-## What is in this repository?
+- Five protected role portals with JWT refresh, RBAC and case-level access control
+- Notification → verification → objection → award → compensation → possession
+- PostGIS parcel storage and an interactive OpenStreetMap/Leaflet command view
+- Image OCR with officer confirmation and optional OpenAI vision extraction
+- Human-confirmed grievance classification and department routing
+- Delay-risk and compensation-disbursal timeline models with visible limitations
+- API Setu/NGDRS-shaped adapter fixtures, Supabase realtime wiring and hash-chained audit logs
+- Responsive judge-ready UI, deterministic synthetic demo and automated CI
 
-- `apps/backend`: Python/FastAPI application and tests.
-- `apps/frontend`: Next.js/TypeScript web application.
-- `docs/original-plan`: the six planning files supplied at project start.
-- `docs/product`: the current, simplified product scope.
-- `docs/architecture`: technical boundaries and decisions.
-- `docs/status/current.md`: the short handoff future Codex tasks should read.
-- `infra`: Supabase realtime and deployment infrastructure.
-- `scripts`: one-command demo reset and offline launch.
-- `docs/pitch`: editable final pitch deck.
+## Responsible-data statement
 
-## What works today?
+The demonstration contains **no real citizen or cadastral data**. It uses 20
+synthetic parcel/case records positioned from an OpenStreetMap road trace and 1,800
+reproducible synthetic histories for model training. The two Random Forest models
+are functional pipeline prototypes, not production policy engines:
 
-The application includes five-role JWT/RBAC, a six-stage acquisition workflow,
-20 OSM-derived PostGIS parcels, five polished portals, document OCR/AI hooks,
-grievance routing, two predictive timeline models, API Setu-shaped fixtures,
-realtime client wiring and a verifiable tamper-evident audit chain.
+| Model | Synthetic 80/20 holdout MAE | R² | Production status |
+|---|---:|---:|---|
+| Acquisition days remaining | 12.92 days | 0.951 | Not validated on real records |
+| Compensation-disbursal timeline | 5.83 days | 0.898 | Not validated on real records |
 
-## Local setup
+These metrics show fit to the synthetic generator only. BhoomiSetu never predicts
+land value, compensation amount, ownership, eligibility or legal outcomes. Real
+deployment requires approved, de-identified authority histories and independent
+temporal, district-level, fairness and drift validation. See the tracked
+[`model_card.json`](apps/backend/scripts/data/model_card.json).
 
-You need Node.js 20+, Python 3.13, Git, PostgreSQL 17, and PostGIS. They are
-installed on this Mac. Supabase is not required for local Phase 1 development.
+## Architecture
 
-### Fastest offline demo
+```text
+Next.js 16 / TypeScript
+        │ REST + JWT
+FastAPI / Python 3.13 ── OCR + scikit-learn models
+        │
+PostgreSQL 17 + PostGIS ── optional Supabase realtime
+```
+
+The backend is containerized for Render; the frontend is ready for Vercel. Detailed
+boundaries are in [`docs/architecture/system.md`](docs/architecture/system.md).
+
+## Run locally
+
+Install Git, Docker Desktop, Python 3.13 and Node.js 22, then:
 
 ```bash
+git clone https://github.com/Punit1787/BhoomiSetu.git
+cd BhoomiSetu
+./scripts/bootstrap.sh
 ./scripts/start_demo.sh
 ```
 
-This migrates and seeds the database, retrains both deterministic models, builds
-the production frontend, and launches the API and web app. Press `Ctrl+C` once
-to stop both services. Use `./scripts/reset_demo.sh` when you only need a clean
-demo state.
-
-### Run the backend
-
-```bash
-cd apps/backend
-/Library/Frameworks/Python.framework/Versions/3.13/bin/python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install -r requirements.txt
-alembic upgrade head
-python -m scripts.seed_data
-uvicorn app.main:app --reload --port 8000
-```
-
-Open `http://localhost:8000/health`. You should see `{"status":"ok"}`.
-Interactive API documentation is at `http://localhost:8000/docs`.
-
-### Demo accounts
-
-All local demo accounts use password `DemoPass123!`:
+Open `http://localhost:3000`; API documentation is at
+`http://localhost:8000/docs`. All five synthetic accounts use `DemoPass123!`:
 
 - `citizen@bhoomsetu.local`
 - `officer@bhoomsetu.local`
@@ -68,23 +69,33 @@ All local demo accounts use password `DemoPass123!`:
 - `district@bhoomsetu.local`
 - `senior@bhoomsetu.local`
 
-These accounts and all parcel/ownership information are synthetic.
+Run `./scripts/check.sh` before committing. `./scripts/reset_demo.sh` intentionally
+clears demo interactions and restores the canonical showcase.
 
-### Run the frontend
+## Repository guide
 
-In a second terminal:
+| Path | Purpose |
+|---|---|
+| `apps/backend` | FastAPI APIs, models, migrations, training and tests |
+| `apps/frontend` | Next.js portals and frontend tests |
+| `infra/supabase` | Optional hosted realtime publication SQL |
+| `scripts` | Bootstrap, verification, reset and offline demo commands |
+| `docs/demo-script.md` | Presenter walkthrough |
+| `docs/judge-qa.md` | Concise responsible-technology answers |
+| `docs/integration-matrix.md` | Clear real/fixture/synthetic disclosure |
+| `docs/team-setup.md` | Collaborator and secret-management workflow |
+| `docs/deployment.md` | Render, Vercel and Supabase deployment |
+| `docs/pitch` | Editable SIH presentation |
 
-```bash
-cd apps/frontend
-npm install
-npm run dev
-```
+## Deployment
 
-Open `http://localhost:3000`.
+Import this private repository into Render using `render.yaml`, deploy the frontend
+from `apps/frontend` on Vercel, and store all secrets in provider environment
+settings. Never commit `.env` files. Full instructions are in
+[`docs/deployment.md`](docs/deployment.md).
 
-## Safe working rules
+## License and data
 
-- Never commit `.env` files, passwords, access tokens, or real citizen data.
-- Use generated demo data only.
-- Do not claim fixture integrations or synthetic ML results are production data.
-- Run the relevant tests before considering a coding task complete.
+This repository is an SIH prototype. OpenStreetMap-derived geometry must retain
+OpenStreetMap attribution. Government adapter fixtures and synthetic data must not
+be presented as live government records.

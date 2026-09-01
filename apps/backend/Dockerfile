@@ -17,4 +17,4 @@ COPY apps/backend/ .
 
 RUN python scripts/train_models.py
 
-CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+CMD ["sh", "-c", "alembic upgrade head && python -m scripts.seed_data --if-empty && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]

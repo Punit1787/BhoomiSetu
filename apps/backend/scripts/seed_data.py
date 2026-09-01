@@ -1,3 +1,4 @@
+import argparse
 import asyncio
 import json
 import math
@@ -79,10 +80,13 @@ def demo_polygon(index: int) -> WKTElement:
     return WKTElement(f"POLYGON(({coordinates}))", srid=4326)
 
 
-async def seed() -> None:
+async def seed(*, reset_existing: bool = True) -> None:
     async with SessionFactory() as db:
         existing = await db.scalar(select(Project).where(Project.name == DEMO_PROJECT_NAME))
         if existing:
+            if not reset_existing:
+                print("Demo project already exists; leaving persisted demo interactions unchanged.")
+                return
             account_rows = list(
                 await db.scalars(
                     select(User).where(User.email.in_([account.email for account in DEMO_ACCOUNTS]))
@@ -253,4 +257,11 @@ async def seed() -> None:
 
 
 if __name__ == "__main__":
-    asyncio.run(seed())
+    parser = argparse.ArgumentParser(description="Seed BhoomiSetu's synthetic showcase data.")
+    parser.add_argument(
+        "--if-empty",
+        action="store_true",
+        help="Create the showcase only when it does not exist; never reset persisted interactions.",
+    )
+    arguments = parser.parse_args()
+    asyncio.run(seed(reset_existing=not arguments.if_empty))
