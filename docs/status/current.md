@@ -48,4 +48,7 @@ Updated: 2026-09-01 Asia/Kolkata
   enabled. Render Free is the selected backend alternative.
 - API Setu/NGDRS data is intentionally fixture-only until official publisher
   approval is granted.
-- UI overhaul checkpoint is commit `148544d` and is pushed to `origin/main`.
+- Crisp redesign/evaluation checkpoint is local commit `a0baa62`. Pushing this
+  checkpoint to the private GitHub remote requires explicit user approval because
+  it includes an evaluation-derived readiness document. `origin/main` still ends
+  at the earlier pushed checkpoint.
