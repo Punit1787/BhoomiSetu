@@ -781,11 +781,15 @@ export default function RolePortal() {
     () =>
       query.data
         ? query.data.map((item) => ({ ...item, stage_history: [] }))
-        : demoCases,
-    [query.data],
+        : demoMode
+          ? demoCases
+          : [],
+    [demoMode, query.data],
   );
   if (!hydrated || !user || user.role !== role)
     return <main className="loadingPage">Securing your role workspace…</main>;
+  if (!demoMode && query.isPending)
+    return <main className="loadingPage">Loading your authorized cases…</main>;
   const copy = {
     landowner: [
       `Namaste, ${user.name.split(" ")[0]}`,

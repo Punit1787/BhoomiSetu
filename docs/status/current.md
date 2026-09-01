@@ -31,6 +31,8 @@ Updated: 2026-09-01 Asia/Kolkata
 - Production-build citizen QA also proves an authenticated grievance write and
   classification (`compensation`, `low`, Compensation & Treasury Cell) plus an
   actual generated PNG upload through Tesseract OCR at 90% extraction confidence.
+- Live portals now wait for authorized case data instead of briefly substituting
+  fixture IDs, eliminating startup requests such as `/cases/case-001` in live mode.
 - Local backend/frontend verification services were stopped cleanly.
 
 ## Resume exactly here
