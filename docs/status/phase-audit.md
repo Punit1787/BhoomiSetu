@@ -36,8 +36,9 @@ Result: **5 of 6 exit criteria proven; Vercel deployment pending.**
   bottleneck counts are derived from the same case array.
 - PENDING — no Vercel production URL is connected to a public backend.
 
-Evidence: ESLint passes; 4 Vitest tests pass; TypeScript/Next production build
-passes; browser QA verifies citizen grievance, officer stage change and role guard.
+Evidence: ESLint passes; 6 Vitest tests pass; TypeScript/Next production build
+passes; browser QA verifies the citizen timeline, officer stage change, role guard,
+authority live prediction disclosure and senior aggregate prediction.
 
 ## Phase 3 — AI, ML and GIS
 
