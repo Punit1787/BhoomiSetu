@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/set-state-in-effect */
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowRight,
@@ -31,7 +31,7 @@ import { Timeline } from "@/components/timeline";
 import { api } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { demoCases, demoParcels, stages } from "@/lib/demo-data";
-import type { CaseDetail, Role } from "@/lib/types";
+import type { CaseDetail, CaseStage, Role } from "@/lib/types";
 
 const ParcelMap = dynamic(() => import("@/components/parcel-map"), {
   ssr: false,
@@ -68,11 +68,54 @@ function Metric({
   );
 }
 
-function CitizenView({ cases }: { cases: CaseDetail[] }) {
+function CitizenView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boolean }) {
   const [selected, setSelected] = useState(cases[0]);
-  const [file, setFile] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [grievance, setGrievance] = useState("");
+  const [documentStatus, setDocumentStatus] = useState("");
+  const [grievanceStatus, setGrievanceStatus] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   const mine = cases.slice(0, 3);
+  const upload = async () => {
+    if (!file) return;
+    setSubmitting(true);
+    setDocumentStatus("");
+    try {
+      if (demoMode) {
+        await new Promise((resolve) => setTimeout(resolve, 450));
+        setDocumentStatus(`${file.name} extracted with demo OCR; officer confirmation required.`);
+      } else {
+        const result = await api.uploadDocument(selected.id, file);
+        setDocumentStatus(`${file.name} ${result.status}; ${Math.round(result.fields.confidence * 100)}% extraction confidence.`);
+      }
+    } catch (error) {
+      setDocumentStatus(error instanceof Error ? error.message : "Document upload failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+  const submitGrievance = async () => {
+    if (grievance.trim().length < 10) {
+      setGrievanceStatus("Please provide at least 10 characters.");
+      return;
+    }
+    setSubmitting(true);
+    setGrievanceStatus("");
+    try {
+      if (demoMode) {
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        setGrievanceStatus("Demo grievance classified as process · medium priority · officer confirmation required.");
+      } else {
+        const result = await api.createGrievance(selected.id, grievance);
+        setGrievanceStatus(`${result.classification.category} · ${result.classification.priority} priority · ${result.classification.suggested_department}`);
+      }
+      setGrievance("");
+    } catch (error) {
+      setGrievanceStatus(error instanceof Error ? error.message : "Grievance submission failed.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
   return (
     <>
       <section className="metricGrid">
@@ -154,19 +197,20 @@ function CitizenView({ cases }: { cases: CaseDetail[] }) {
           </div>
           <label className="dropzone">
             <UploadCloud />
-            <strong>{file || "Choose ownership document"}</strong>
-            <small>PDF, JPG or PNG · Maximum 10 MB</small>
+            <strong>{file?.name || "Choose ownership document"}</strong>
+            <small>PNG, JPG or TIFF · Maximum 10 MB</small>
             <input
               type="file"
-              onChange={(event) => setFile(event.target.files?.[0]?.name ?? "")}
+              accept="image/png,image/jpeg,image/tiff"
+              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
             />
           </label>
           {file && (
-            <p className="successNote">
-              <CheckCircle2 /> {file} is queued for AI extraction and officer
-              confirmation.
-            </p>
+            <button className="button primary" disabled={submitting} onClick={upload}>
+              <UploadCloud size={17} /> Extract document
+            </button>
           )}
+          {documentStatus && <p className="successNote" role="status"><CheckCircle2 /> {documentStatus}</p>}
         </div>
         <div className="panel">
           <div className="panelHead">
@@ -181,9 +225,10 @@ function CitizenView({ cases }: { cases: CaseDetail[] }) {
             value={grievance}
             onChange={(event) => setGrievance(event.target.value)}
           />
-          <button className="button primary" onClick={() => setGrievance("")}>
+          <button className="button primary" disabled={submitting} onClick={submitGrievance}>
             Submit grievance <ArrowRight size={17} />
           </button>
+          {grievanceStatus && <p className="successNote" role="status"><CheckCircle2 /> {grievanceStatus}</p>}
           <div className="grievanceRow">
             <span>
               <i /> GRV-2026-018
@@ -196,12 +241,38 @@ function CitizenView({ cases }: { cases: CaseDetail[] }) {
   );
 }
 
-function OfficerView({ cases }: { cases: CaseDetail[] }) {
+function OfficerView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boolean }) {
+  const queryClient = useQueryClient();
   const [stageFilter, setStageFilter] = useState("all");
+  const [actionStatus, setActionStatus] = useState("");
+  const [advancing, setAdvancing] = useState<string | null>(null);
+  const [stageOverrides, setStageOverrides] = useState<Record<string, CaseStage>>({});
+  const effectiveCases = cases.map((item) => ({
+    ...item,
+    current_stage: stageOverrides[item.id] ?? item.current_stage,
+  }));
   const filtered =
     stageFilter === "all"
-      ? cases.slice(0, 8)
-      : cases.filter((item) => item.current_stage === stageFilter).slice(0, 8);
+      ? effectiveCases.slice(0, 8)
+      : effectiveCases.filter((item) => item.current_stage === stageFilter).slice(0, 8);
+  const advance = async (item: CaseDetail) => {
+    const index = stages.indexOf(item.current_stage);
+    const nextStage = stages[index + 1];
+    if (!nextStage) return;
+    setAdvancing(item.id);
+    setActionStatus("");
+    try {
+      if (demoMode) await new Promise((resolve) => setTimeout(resolve, 350));
+      else await api.transition(item.id, nextStage, "Verified and advanced from officer portal");
+      setStageOverrides((current) => ({ ...current, [item.id]: nextStage }));
+      if (!demoMode) await queryClient.invalidateQueries({ queryKey: ["cases"] });
+      setActionStatus(`${item.case_number} advanced to ${nextStage}. ${demoMode ? "Demo state only." : "Audit and stage history recorded."}`);
+    } catch (error) {
+      setActionStatus(error instanceof Error ? error.message : "Stage transition failed.");
+    } finally {
+      setAdvancing(null);
+    }
+  };
   return (
     <>
       <section className="metricGrid">
@@ -255,12 +326,13 @@ function OfficerView({ cases }: { cases: CaseDetail[] }) {
                   <small>Kharadi · Survey {item.parcel_id.slice(-3)}</small>
                 </span>
                 <StatusBadge value={item.current_stage} />
-                <button aria-label="Open case">
-                  <ArrowRight size={17} />
+                <button aria-label={`Advance ${item.case_number}`} disabled={advancing === item.id || item.current_stage === "possession"} onClick={() => advance(item)}>
+                  {advancing === item.id ? <Clock3 size={17} /> : <ArrowRight size={17} />}
                 </button>
               </div>
             ))}
           </div>
+          {actionStatus && <p className="successNote" role="status"><CheckCircle2 /> {actionStatus}</p>}
         </div>
         <div className="panel verifyPanel">
           <div className="panelHead">
@@ -694,8 +766,8 @@ export default function RolePortal() {
   }[role];
   return (
     <PortalShell role={role} title={copy[0]} subtitle={copy[1]}>
-      {role === "landowner" && <CitizenView cases={cases} />}
-      {role === "officer" && <OfficerView cases={cases} />}
+      {role === "landowner" && <CitizenView cases={cases} demoMode={demoMode} />}
+      {role === "officer" && <OfficerView cases={cases} demoMode={demoMode} />}
       {role === "authority" && <AuthorityView cases={cases} />}
       {role === "district_admin" && <DistrictView cases={cases} />}
       {role === "senior_admin" && <SeniorView />}

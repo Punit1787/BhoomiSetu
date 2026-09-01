@@ -28,7 +28,7 @@ jobs:
         working-directory: apps/backend
     env:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/bhoomsetu_test
-      JWT_ACCESS_SECRET: ci-access-secret-at-least-32-characters
+      JWT_SECRET: ci-access-secret-at-least-32-characters
       JWT_REFRESH_SECRET: ci-refresh-secret-at-least-32-characters
     steps:
       - uses: actions/checkout@v4

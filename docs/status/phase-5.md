@@ -5,6 +5,11 @@ Status: local delivery complete; public deployment and human rehearsal remain ex
 ## Delivered and verified
 
 - Separate fast GitHub Actions pipelines for backend/PostGIS and frontend.
+- Backend CI now sets the application's actual `JWT_SECRET` variable; the prior
+  `JWT_ACCESS_SECRET` name silently fell back to a development default.
+- Root Render Blueprint defines the free Docker backend, generated JWT secrets,
+  prompted Supabase/CORS variables and health check. Vercel monorepo setup is
+  documented with `apps/frontend` as the Root Directory.
 - One canonical `scripts/reset_demo.sh` command for migrations, two model builds, five accounts and 20 varied OSM-derived cases.
 - One `scripts/start_demo.sh` production-mode offline fallback with coordinated cleanup and configurable test ports.
 - Offline fallback test: backend health returned OK and frontend returned HTTP 200.

@@ -3,6 +3,8 @@ import type {
   AuthTokens,
   CaseDetail,
   CaseSummary,
+  DocumentExtraction,
+  GrievanceResult,
   LandRecordFixture,
 } from "./types";
 
@@ -52,10 +54,23 @@ export const api = {
     }),
   cases: () => apiFetch<CaseSummary[]>("/cases"),
   caseDetail: (id: string) => apiFetch<CaseDetail>(`/cases/${id}`),
-  transition: (id: string, notes: string) =>
+  transition: (id: string, newStage: string, reason: string) =>
     apiFetch<CaseSummary>(`/cases/${id}/transition`, {
       method: "POST",
-      body: JSON.stringify({ notes }),
+      body: JSON.stringify({ new_stage: newStage, reason }),
+    }),
+  uploadDocument: (id: string, file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    return apiFetch<DocumentExtraction>(`/cases/${id}/documents`, {
+      method: "POST",
+      body,
+    });
+  },
+  createGrievance: (id: string, description: string) =>
+    apiFetch<GrievanceResult>(`/cases/${id}/grievances`, {
+      method: "POST",
+      body: JSON.stringify({ description }),
     }),
   landRecord: (surveyNumber: string) =>
     apiFetch<LandRecordFixture>(

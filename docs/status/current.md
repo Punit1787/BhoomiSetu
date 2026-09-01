@@ -2,53 +2,34 @@
 
 Updated: 2026-09-01 Asia/Kolkata
 
-## Completed
+## Completed and verified
 
-- Phases 1–5 remain implemented and verified.
-- Private GitHub repository created and `main` pushed to
-  `https://github.com/Punit1787/BhoomiSetu`.
-- Supabase Free organization and project created. Project ref:
-  `adwmdfytfvwdqifruitd`; PostGIS was enabled successfully in its SQL editor.
-- Frontend retains the reactive workspace clock/status strip, strong focus states
-  and reduced-motion support from the earlier interaction pass.
-- Landing and login copy now distinguish live-ready functionality from demo data.
-- Honest real-vs-simulated inventory saved in `docs/integration-matrix.md`.
-- Official internal evaluation sheet reviewed. Conservative readiness is 31.3/40
-  (78%); weighted remaining work is 22%. Full breakdown is in
-  `docs/evaluation-readiness.md`.
-- Gradient-heavy visual effects were superseded by a crisp reference-led system:
-  flat black navigation, white/soft-gray work surfaces, one cobalt accent, thin
-  borders, restrained mobile-only depth and no decorative glows/orbs.
+- Strict Phase 1–5 audit recorded in `docs/status/phase-audit.md`.
+- Backend: Ruff and all 17 PostgreSQL/PostGIS tests pass.
+- Frontend: ESLint, 4 Vitest tests, TypeScript and production build pass.
+- Citizen document/grievance and officer transition controls now use real FastAPI
+  contracts outside clearly labelled demo mode.
+- Browser QA passes for citizen grievance feedback, visible officer stage change,
+  officer-to-authority 403 protection, desktop layout and 390×844 mobile layout.
+- Backend CI secret-name defect fixed; Render Blueprint and exact Vercel/Supabase
+  deployment instructions added.
+- SIH evaluation readiness remains 31.3/40 (78%).
 
-## Verification
+## Next actions
 
-- Frontend lint passed after the overhaul.
-- Component test passed after updating the intentional landing-copy assertion.
-- TypeScript and the optimized Next.js production build passed.
-- Live browser QA passed at 1440×900 desktop and 390×844 mobile. The landing
-  layout is responsive, readable and visually consistent with the supplied refs.
-- Earlier baseline: 17 backend tests, Ruff, frontend build, browser QA and offline
-  production start all passed.
+1. With explicit user approval, push the latest private-source checkpoint.
+2. Deploy `render.yaml`, providing the Supabase async connection string and final
+   frontend origin only through Render's secret prompts.
+3. Import the repository into Vercel with Root Directory `apps/frontend`, set its
+   public API/Supabase variables, then update Render CORS.
+4. Run Alembic and seed on Supabase, apply `infra/supabase/realtime.sql`, and verify
+   a case transition in two browser windows.
+5. Have the presenting team perform and record five full demo/Q&A rehearsals.
 
-## Exact next actions
+## Known boundaries
 
-1. Inspect the authenticated authority and officer workflows once public hosting
-   is available and capture evaluation evidence screenshots.
-2. Resume hosting: Render backend first, then set Supabase connection/realtime,
-   then Vercel frontend. Browser navigation to Render was blocked only because
-   the Codex browser-control usage allowance was exhausted, not by the project.
-3. After backend migrations create `cases`, `documents` and `grievances`, run
-   `infra/supabase/realtime.sql` and perform a two-window change test.
-
-## Secrets and blockers
-
-- Never commit the Supabase database password, JWT secrets, OpenAI key, service
-  role key or deployment tokens.
-- Railway remains unavailable because its account trial expired. No billing was
-  enabled. Render Free is the selected backend alternative.
-- API Setu/NGDRS data is intentionally fixture-only until official publisher
-  approval is granted.
-- Crisp redesign/evaluation checkpoint is local commit `a0baa62`. Pushing this
-  checkpoint to the private GitHub remote requires explicit user approval because
-  it includes an evaluation-derived readiness document. `origin/main` still ends
-  at the earlier pushed checkpoint.
+- API Setu and NGDRS remain clearly labelled fixtures until official publisher access.
+- ML uses synthetic data and never predicts land value or legal outcomes.
+- No secrets or real citizen data belong in Git.
+- Latest pushed remote checkpoint predates the crisp redesign; current work is local
+  until the user explicitly approves private GitHub egress.

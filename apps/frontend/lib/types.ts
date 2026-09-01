@@ -66,3 +66,31 @@ export interface LandRecordFixture {
   land_use_classification: string;
   encumbrance: { has_encumbrance: boolean; status: string };
 }
+
+export interface DocumentExtraction {
+  document_id: string;
+  status: string;
+  fields: {
+    owner_name?: string | null;
+    khasra_survey_number?: string | null;
+    area_hectares?: number | null;
+    document_type?: string | null;
+    document_date?: string | null;
+    confidence: number;
+    extraction_method: "vision_llm" | "tesseract_ocr";
+    raw_text_excerpt: string;
+  };
+}
+
+export interface GrievanceResult {
+  id: string;
+  case_id: string;
+  classification: {
+    category: string;
+    priority: string;
+    suggested_department: string;
+    confidence: number;
+    rationale: string;
+  };
+  human_confirmation_required: boolean;
+}
