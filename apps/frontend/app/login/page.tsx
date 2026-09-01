@@ -24,7 +24,7 @@ export default function LoginPage() {
     setLoading(true); setMessage("");
     try {
       let tokens: AuthTokens;
-      if (demo) tokens = { access_token: `demo-${role}`, refresh_token: "demo", token_type: "bearer", user: { id: `demo-${role}`, email, full_name: demoAccounts[role].name, role } };
+      if (demo) tokens = { access_token: `demo-${role}`, refresh_token: "demo", token_type: "bearer", user: { id: `demo-${role}`, email, name: demoAccounts[role].name, role } };
       else tokens = await api.login(email, password);
       setSession(tokens, demo); router.push(`/portal/${tokens.user.role}`);
     } catch { setMessage("The local API is unavailable. Use ‘Explore with demo data’ or start the backend."); }

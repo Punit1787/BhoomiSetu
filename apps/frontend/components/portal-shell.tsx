@@ -35,7 +35,7 @@ export function PortalShell({ role, title, subtitle, children }: { role: Role; t
         <nav className="sideNav" aria-label="Portal navigation">
           {links.map(({ label, icon: LinkIcon }, index) => <button className={index === 0 ? "active" : ""} key={label}><LinkIcon size={18} />{label}<ChevronRight size={15} /></button>)}
         </nav>
-        <div className="sideFooter"><span><CircleUserRound size={18} /><span><strong>{user?.full_name ?? "Demo User"}</strong><small>{demoMode ? "Demo data mode" : "Live API"}</small></span></span><button aria-label="Log out" onClick={() => { logout(); router.push("/login"); }}><LogOut size={18} /></button></div>
+        <div className="sideFooter"><span><CircleUserRound size={18} /><span><strong>{user?.name ?? "Demo User"}</strong><small>{demoMode ? "Demo data mode" : "Live API"}</small></span></span><button aria-label="Log out" onClick={() => { logout(); router.push("/login"); }}><LogOut size={18} /></button></div>
       </aside>
       <main className="portalMain">
         <header className="portalHeader"><button className="menuButton" onClick={() => setOpen(true)}><Menu /></button><div><p>{stageLabel(role)} workspace</p><h1>{title}</h1><span>{subtitle}</span></div><div className={`livePill ${demoMode ? "demo" : ""}`}><i />{demoMode ? "Demo fallback" : "Live API"}</div></header>

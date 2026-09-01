@@ -30,7 +30,7 @@ import { StatusBadge } from "@/components/status-badge";
 import { Timeline } from "@/components/timeline";
 import { api } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
-import { demoCases, demoParcels, stages } from "@/lib/demo-data";
+import { caseReference, demoCases, demoParcels, stages } from "@/lib/demo-data";
 import type { CaseDetail, CaseStage, Role } from "@/lib/types";
 
 const ParcelMap = dynamic(() => import("@/components/parcel-map"), {
@@ -69,13 +69,28 @@ function Metric({
 }
 
 function CitizenView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boolean }) {
-  const [selected, setSelected] = useState(cases[0]);
+  const [selectedId, setSelectedId] = useState(cases[0]?.id);
   const [file, setFile] = useState<File | null>(null);
   const [grievance, setGrievance] = useState("");
   const [documentStatus, setDocumentStatus] = useState("");
   const [grievanceStatus, setGrievanceStatus] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const mine = cases.slice(0, 3);
+  const selectedSummary = cases.find((item) => item.id === selectedId) ?? cases[0];
+  const detailQuery = useQuery({
+    queryKey: ["case", selectedSummary?.id],
+    queryFn: () => api.caseDetail(selectedSummary!.id),
+    enabled: !demoMode && !!selectedSummary,
+  });
+  const selected = detailQuery.data ?? selectedSummary;
+  if (!selected) {
+    return <section className="panel emptyState"><FileText /><h2>No linked acquisition cases</h2><p>This account cannot view cases until an authorized project authority links it to a parcel.</p></section>;
+  }
+  const currentStageIndex = stages.indexOf(selected.current_stage);
+  const nextMilestone: CaseStage | "Complete" =
+    currentStageIndex >= 0 && currentStageIndex < stages.length - 1
+      ? stages[currentStageIndex + 1]
+      : "Complete";
   const upload = async () => {
     if (!file) return;
     setSubmitting(true);
@@ -121,26 +136,26 @@ function CitizenView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boole
       <section className="metricGrid">
         <Metric
           label="Active cases"
-          value="3"
-          detail="Across 3 land parcels"
+          value={String(mine.length)}
+          detail={`Across ${mine.length} linked land parcel${mine.length === 1 ? "" : "s"}`}
           icon={FileText}
         />
         <Metric
           label="Compensation assessed"
-          value="₹42.8L"
-          detail="₹28.5L disbursed"
+          value={demoMode ? "₹42.8L" : "Tracked"}
+          detail={demoMode ? "₹28.5L disbursed" : "No amount prediction is performed"}
           icon={IndianRupee}
         />
         <Metric
           label="Open grievance"
-          value="1"
-          detail="Response due in 2 days"
+          value={demoMode ? "1" : "Submit below"}
+          detail={demoMode ? "Response due in 2 days" : "Classification is human-confirmed"}
           icon={MessageSquareText}
         />
         <Metric
           label="Next milestone"
-          value="Award"
-          detail="Expected 08 Sep 2026"
+          value={nextMilestone.replaceAll("_", " ")}
+          detail={nextMilestone === "Complete" ? "Lifecycle completed" : "Next legal workflow stage"}
           icon={Clock3}
         />
       </section>
@@ -151,14 +166,14 @@ function CitizenView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boole
               <p className="sectionLabel">My land acquisition cases</p>
               <h2>Know exactly where you stand</h2>
             </div>
-            <span className="count">{mine.length} cases</span>
+            <span className="count">{mine.length} case{mine.length === 1 ? "" : "s"}</span>
           </div>
           <div className="caseList">
             {mine.map((item) => (
               <CaseCard
                 item={item}
                 selected={selected.id === item.id}
-                onSelect={() => setSelected(item)}
+                onSelect={() => setSelectedId(item.id)}
                 key={item.id}
               />
             ))}
@@ -167,7 +182,7 @@ function CitizenView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boole
         <div className="panel caseDetail">
           <div className="panelHead">
             <div>
-              <p className="sectionLabel">{selected.case_number}</p>
+              <p className="sectionLabel">{caseReference(selected)}</p>
               <h2>Case journey</h2>
             </div>
             <StatusBadge value={selected.current_stage} />
@@ -266,7 +281,7 @@ function OfficerView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boole
       else await api.transition(item.id, nextStage, "Verified and advanced from officer portal");
       setStageOverrides((current) => ({ ...current, [item.id]: nextStage }));
       if (!demoMode) await queryClient.invalidateQueries({ queryKey: ["cases"] });
-      setActionStatus(`${item.case_number} advanced to ${nextStage}. ${demoMode ? "Demo state only." : "Audit and stage history recorded."}`);
+      setActionStatus(`${caseReference(item)} advanced to ${nextStage}. ${demoMode ? "Demo state only." : "Audit and stage history recorded."}`);
     } catch (error) {
       setActionStatus(error instanceof Error ? error.message : "Stage transition failed.");
     } finally {
@@ -322,11 +337,11 @@ function OfficerView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boole
             {filtered.map((item) => (
               <div key={item.id}>
                 <span>
-                  <strong>{item.case_number}</strong>
+                  <strong>{caseReference(item)}</strong>
                   <small>Kharadi · Survey {item.parcel_id.slice(-3)}</small>
                 </span>
                 <StatusBadge value={item.current_stage} />
-                <button aria-label={`Advance ${item.case_number}`} disabled={advancing === item.id || item.current_stage === "possession"} onClick={() => advance(item)}>
+                <button aria-label={`Advance ${caseReference(item)}`} disabled={advancing === item.id || item.current_stage === "possession"} onClick={() => advance(item)}>
                   {advancing === item.id ? <Clock3 size={17} /> : <ArrowRight size={17} />}
                 </button>
               </div>
@@ -484,8 +499,9 @@ function AuthorityView({ cases }: { cases: CaseDetail[] }) {
             <span>
               <small>Selected from map</small>
               <strong>
-                {cases.find((item) => item.id === selectedCase)?.case_number ??
-                  "Click a parcel"}
+                {cases.find((item) => item.id === selectedCase)
+                  ? caseReference(cases.find((item) => item.id === selectedCase)!)
+                  : "Click a parcel"}
               </strong>
             </span>
           </div>
@@ -596,7 +612,7 @@ function DistrictView({ cases }: { cases: CaseDetail[] }) {
                     {index % 2 ? "Document verified" : "Case stage advanced"}
                   </strong>
                   <small>
-                    {item.case_number} · Officer {index + 1}
+                    {caseReference(item)} · Officer {index + 1}
                   </small>
                 </span>
                 <time>{index + 2}h ago</time>
@@ -744,7 +760,7 @@ export default function RolePortal() {
     return <main className="loadingPage">Securing your role workspace…</main>;
   const copy = {
     landowner: [
-      "Namaste, Asha",
+      `Namaste, ${user.name.split(" ")[0]}`,
       "Your land, documents and compensation—clearly tracked.",
     ],
     officer: [

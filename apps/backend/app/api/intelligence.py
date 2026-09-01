@@ -21,6 +21,7 @@ from app.schemas.intelligence import (
     SpatialParcelResponse,
 )
 from app.services.audit import write_audit_log
+from app.services.case_access import accessible_case_or_404, scope_case_query
 from app.services.document_ai import extract_document
 from app.services.grievance_ai import classify_grievance
 from app.services.predictive import predict
@@ -34,13 +35,6 @@ OFFICER_ROLES = (
 )
 
 
-async def _case_or_404(db: AsyncSession, case_id: uuid.UUID) -> AcquisitionCase:
-    item = await db.get(AcquisitionCase, case_id)
-    if item is None:
-        raise HTTPException(status_code=404, detail="Case not found")
-    return item
-
-
 @router.post(
     "/cases/{case_id}/documents",
     response_model=DocumentExtractionResponse,
@@ -52,7 +46,7 @@ async def upload_and_extract_document(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> DocumentExtractionResponse:
-    await _case_or_404(db, case_id)
+    await accessible_case_or_404(db, case_id, actor)
     if file.content_type not in {"image/png", "image/jpeg", "image/tiff"}:
         raise HTTPException(
             status_code=415, detail="OCR currently accepts PNG, JPEG or TIFF images"
@@ -94,6 +88,7 @@ async def reextract_document(
     document = await db.get(Document, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
+    await accessible_case_or_404(db, document.case_id, actor)
     fields = await extract_document(await file.read(), file.content_type or "image/png")
     document.extracted_fields = fields.model_dump()
     document.status = DocumentStatus.EXTRACTED
@@ -116,6 +111,7 @@ async def confirm_document(
     document = await db.get(Document, document_id)
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
+    await accessible_case_or_404(db, document.case_id, actor)
     merged = {**(document.extracted_fields or {}), **payload.fields}
     document.extracted_fields = merged
     document.status = DocumentStatus.VERIFIED if payload.approved else DocumentStatus.REJECTED
@@ -137,7 +133,7 @@ async def create_and_classify_grievance(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> GrievanceResponse:
-    await _case_or_404(db, case_id)
+    await accessible_case_or_404(db, case_id, actor)
     classification = classify_grievance(payload.description)
     grievance = Grievance(
         case_id=case_id,
@@ -159,11 +155,12 @@ async def classify_existing_grievance(
     grievance_id: uuid.UUID,
     payload: GrievanceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_roles(*OFFICER_ROLES)),
+    actor: User = Depends(require_roles(*OFFICER_ROLES)),
 ) -> GrievanceResponse:
     grievance = await db.get(Grievance, grievance_id)
     if grievance is None:
         raise HTTPException(status_code=404, detail="Grievance not found")
+    await accessible_case_or_404(db, grievance.case_id, actor)
     classification = classify_grievance(payload.description)
     grievance.category, grievance.priority, grievance.department = (
         classification.category,
@@ -186,6 +183,7 @@ async def confirm_grievance(
     grievance = await db.get(Grievance, grievance_id)
     if grievance is None:
         raise HTTPException(status_code=404, detail="Grievance not found")
+    await accessible_case_or_404(db, grievance.case_id, actor)
     grievance.category, grievance.priority, grievance.department = (
         payload.category,
         payload.priority,
@@ -241,15 +239,21 @@ async def _prediction_features(db: AsyncSession, case_id: uuid.UUID) -> dict[str
 
 @router.get("/cases/{case_id}/prediction/delay", response_model=PredictionResponse)
 async def delay_prediction(
-    case_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)
+    case_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
 ) -> PredictionResponse:
+    await accessible_case_or_404(db, case_id, actor)
     return predict("delay_model.joblib", await _prediction_features(db, case_id))
 
 
 @router.get("/cases/{case_id}/prediction/compensation-timeline", response_model=PredictionResponse)
 async def compensation_prediction(
-    case_id: uuid.UUID, db: AsyncSession = Depends(get_db), _: User = Depends(get_current_user)
+    case_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
 ) -> PredictionResponse:
+    await accessible_case_or_404(db, case_id, actor)
     return predict("compensation_timeline_model.joblib", await _prediction_features(db, case_id))
 
 
@@ -291,12 +295,15 @@ async def intersect_parcels(
     geometry: dict[str, Any] = Body(...),
     project_id: uuid.UUID | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    actor: User = Depends(get_current_user),
 ) -> list[SpatialParcelResponse]:
     boundary = func.ST_SetSRID(func.ST_GeomFromGeoJSON(json.dumps(geometry)), 4326)
-    query = select(Parcel, func.ST_AsGeoJSON(Parcel.polygon)).where(
-        func.ST_Intersects(Parcel.polygon, boundary)
+    query = (
+        select(Parcel, func.ST_AsGeoJSON(Parcel.polygon))
+        .join(AcquisitionCase, AcquisitionCase.parcel_id == Parcel.id)
+        .where(func.ST_Intersects(Parcel.polygon, boundary))
     )
+    query = scope_case_query(query, actor)
     if project_id:
         query = query.where(Parcel.project_id == project_id)
     rows = (await db.execute(query)).all()

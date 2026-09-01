@@ -2,35 +2,45 @@
 
 Updated: 2026-09-01 Asia/Kolkata
 
-## Completed and verified
+## Verified this checkpoint
 
-- Strict Phase 1–5 audit recorded in `docs/status/phase-audit.md`.
-- Backend: Ruff and all 17 PostgreSQL/PostGIS tests pass.
-- Frontend: ESLint, 4 Vitest tests, TypeScript and production build pass.
-- Citizen document/grievance and officer transition controls now use real FastAPI
-  contracts outside clearly labelled demo mode.
-- Browser QA passes for citizen grievance feedback, visible officer stage change,
-  officer-to-authority 403 protection, desktop layout and 390×844 mobile layout.
-- Backend CI secret-name defect fixed; Render Blueprint and exact Vercel/Supabase
-  deployment instructions added.
-- SIH evaluation readiness remains 31.3/40 (78%).
+- Real seeded login now works: frontend credentials match backend
+  (`@bhoomsetu.local`, `DemoPass123!`).
+- Frontend auth now matches the backend contract (`name`, not `full_name`) and
+  normalizes backend `project_authority` to the `/portal/authority` route.
+- Live cases use stable UUID-derived references when synthetic case numbers are absent.
+- Backend row-level access now restricts citizens to linked parcels and officers to
+  assigned cases across case lists/details, transitions, documents, grievances,
+  predictions and spatial results. Unauthorized lookups return 404.
+- Real browser proof passed: officer JWT login, live `/cases`, PostgreSQL-backed
+  transition, visible refresh, and persisted `VERIFICATION|1 history|1 audit`.
+- Real citizen login showed exactly one linked case and the authenticated name.
+- Citizen selection now resolves against live query data; case-detail stage history
+  is fetched and normalized from `changed_at/reason` to the timeline model.
+- Backend Ruff and all 17 PostgreSQL/PostGIS tests pass.
+- Frontend ESLint, 6 Vitest contract tests, TypeScript and production build pass.
+- Local backend/frontend verification services were stopped cleanly.
 
-## Next actions
+## Resume exactly here
 
-1. With explicit user approval, push the latest private-source checkpoint.
-2. Deploy `render.yaml`, providing the Supabase async connection string and final
-   frontend origin only through Render's secret prompts.
-3. Import the repository into Vercel with Root Directory `apps/frontend`, set its
-   public API/Supabase variables, then update Render CORS.
-4. Run Alembic and seed on Supabase, apply `infra/supabase/realtime.sql`, and verify
-   a case transition in two browser windows.
-5. Have the presenting team perform and record five full demo/Q&A rehearsals.
+1. Start backend on 8001 with `FRONTEND_ORIGIN=http://127.0.0.1:3100`.
+2. Build frontend with `NEXT_PUBLIC_API_BASE_URL=http://127.0.0.1:8001`, then start
+   it on 3100.
+3. Browser-check the latest citizen detail timeline, then submit one real grievance
+   and one image document; confirm the returned classification/extraction on screen.
+4. Fix `scripts/seed_data.py`: when the demo project already exists it currently
+   updates polygons and returns, so `reset_demo.sh` does not restore mutated stages.
+   Make reset deterministic and add a regression test.
+5. Rerun `./scripts/check.sh`, update `docs/status/phase-audit.md`, and commit.
+6. External completion still needs explicit approval: push private source, deploy
+   Render/Vercel, migrate/seed Supabase, enable realtime, run two-window CDC QA,
+   and record five human rehearsals.
 
-## Known boundaries
+## Boundaries
 
-- API Setu and NGDRS remain clearly labelled fixtures until official publisher access.
-- ML uses synthetic data and never predicts land value or legal outcomes.
+- API Setu/NGDRS are disclosed fixtures; ML uses synthetic data and never predicts
+  land value or legal outcomes.
 - No secrets or real citizen data belong in Git.
-- Latest pushed remote checkpoint predates the crisp redesign; current work is local
-  until the user explicitly approves private GitHub egress. The verified local
-  implementation/audit checkpoint is commit `f550938`.
+- Remote `origin/main` predates the crisp redesign; current work remains local until
+  the user explicitly approves private GitHub egress. Resume from local commit
+  `74e1aed`.

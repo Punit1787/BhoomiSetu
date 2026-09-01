@@ -9,12 +9,15 @@ export const stages: CaseStage[] = [
   "possession",
 ];
 
+export const caseReference = (item: Pick<CaseDetail, "id" | "case_number">) =>
+  item.case_number ?? `BS-${item.id.slice(0, 8).toUpperCase()}`;
+
 export const demoAccounts: Record<Role, { email: string; password: string; name: string }> = {
-  landowner: { email: "citizen@bhoomsetu.demo", password: "Demo@123", name: "Asha Patil" },
-  officer: { email: "officer@bhoomsetu.demo", password: "Demo@123", name: "Field Officer" },
-  authority: { email: "authority@bhoomsetu.demo", password: "Demo@123", name: "Project Authority" },
-  district_admin: { email: "district@bhoomsetu.demo", password: "Demo@123", name: "District Administrator" },
-  senior_admin: { email: "senior@bhoomsetu.demo", password: "Demo@123", name: "Central Administrator" },
+  landowner: { email: "citizen@bhoomsetu.local", password: "DemoPass123!", name: "Anita Patil" },
+  officer: { email: "officer@bhoomsetu.local", password: "DemoPass123!", name: "Field Officer" },
+  authority: { email: "authority@bhoomsetu.local", password: "DemoPass123!", name: "Project Authority" },
+  district_admin: { email: "district@bhoomsetu.local", password: "DemoPass123!", name: "District Administrator" },
+  senior_admin: { email: "senior@bhoomsetu.local", password: "DemoPass123!", name: "Senior Administrator" },
 };
 
 const now = new Date("2026-08-31T09:30:00+05:30").toISOString();

@@ -10,6 +10,46 @@ import type {
 
 const API_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 
+type BackendAuthTokens = Omit<AuthTokens, "user"> & {
+  user: Omit<AuthTokens["user"], "role"> & {
+    role: AuthTokens["user"]["role"] | "project_authority";
+  };
+};
+
+type BackendCaseDetail = Omit<CaseDetail, "stage_history"> & {
+  stage_history: Array<{
+    id: string;
+    from_stage: CaseDetail["current_stage"];
+    to_stage: CaseDetail["current_stage"];
+    changed_by: string;
+    reason?: string | null;
+    changed_at: string;
+  }>;
+};
+
+function normalizeTokens(tokens: BackendAuthTokens): AuthTokens {
+  return {
+    ...tokens,
+    user: {
+      ...tokens.user,
+      role: tokens.user.role === "project_authority" ? "authority" : tokens.user.role,
+    },
+  };
+}
+
+function normalizeCaseDetail(item: BackendCaseDetail): CaseDetail {
+  return {
+    ...item,
+    stage_history: item.stage_history.map((entry) => ({
+      id: entry.id,
+      from_stage: entry.from_stage,
+      to_stage: entry.to_stage,
+      notes: entry.reason,
+      created_at: entry.changed_at,
+    })),
+  };
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const state = useAuthStore.getState();
   if (!state.refreshToken || state.demoMode) return null;
@@ -19,7 +59,7 @@ async function refreshAccessToken(): Promise<string | null> {
     body: JSON.stringify({ refresh_token: state.refreshToken }),
   });
   if (!response.ok) return null;
-  const tokens = (await response.json()) as AuthTokens;
+  const tokens = normalizeTokens((await response.json()) as BackendAuthTokens);
   state.setSession(tokens);
   return tokens.access_token;
 }
@@ -48,12 +88,13 @@ export async function apiFetch<T>(
 
 export const api = {
   login: (email: string, password: string) =>
-    apiFetch<AuthTokens>("/auth/login", {
+    apiFetch<BackendAuthTokens>("/auth/login", {
       method: "POST",
       body: JSON.stringify({ email, password }),
-    }),
+    }).then(normalizeTokens),
   cases: () => apiFetch<CaseSummary[]>("/cases"),
-  caseDetail: (id: string) => apiFetch<CaseDetail>(`/cases/${id}`),
+  caseDetail: (id: string) =>
+    apiFetch<BackendCaseDetail>(`/cases/${id}`).then(normalizeCaseDetail),
   transition: (id: string, newStage: string, reason: string) =>
     apiFetch<CaseSummary>(`/cases/${id}/transition`, {
       method: "POST",

@@ -26,6 +26,54 @@ describe("portal API mutations", () => {
     authState.demoMode = false;
   });
 
+  it("normalizes the backend authority role and preserves the real user name", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => ok({
+      access_token: "access-token",
+      refresh_token: "refresh-token",
+      token_type: "bearer",
+      user: {
+        id: "authority-1",
+        name: "Project Authority",
+        email: "authority@bhoomsetu.local",
+        role: "project_authority",
+      },
+    }));
+
+    const tokens = await api.login("authority@bhoomsetu.local", "DemoPass123!");
+
+    expect(tokens.user).toMatchObject({
+      name: "Project Authority",
+      role: "authority",
+    });
+  });
+
+  it("normalizes backend stage history for the case timeline", async () => {
+    authState.accessToken = "access-token";
+    vi.spyOn(globalThis, "fetch").mockImplementation(() => ok({
+      id: "case-1",
+      parcel_id: "parcel-1",
+      current_stage: "verification",
+      assigned_officer_id: "officer-1",
+      affected_family_count: 1,
+      created_at: "2026-09-01T00:00:00Z",
+      stage_history: [{
+        id: "history-1",
+        from_stage: "notification",
+        to_stage: "verification",
+        changed_by: "officer-1",
+        reason: "Documents verified",
+        changed_at: "2026-09-01T01:00:00Z",
+      }],
+    }));
+
+    const item = await api.caseDetail("case-1");
+
+    expect(item.stage_history[0]).toMatchObject({
+      notes: "Documents verified",
+      created_at: "2026-09-01T01:00:00Z",
+    });
+  });
+
   it("sends the backend workflow contract with bearer authentication", async () => {
     authState.accessToken = "access-token";
     authState.refreshToken = "refresh-token";

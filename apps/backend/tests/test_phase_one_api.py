@@ -108,6 +108,24 @@ def test_complete_phase_one_case_journey(client: TestClient) -> None:
     assert case_response.status_code == 201, case_response.text
     case_id = case_response.json()["id"]
 
+    outsider = register(client, "landowner", f"outsider-{suffix}")
+    unassigned_officer = register(client, "officer", f"unassigned-{suffix}")
+    citizen_cases = client.get(
+        "/cases", headers=authorization(accounts["landowner"])
+    )
+    assert citizen_cases.status_code == 200
+    assert [row["id"] for row in citizen_cases.json()] == [case_id]
+    for account in (outsider, unassigned_officer):
+        headers = authorization(account)
+        assert client.get("/cases", headers=headers).json() == []
+        assert client.get(f"/cases/{case_id}", headers=headers).status_code == 404
+    forbidden_transition = client.post(
+        f"/cases/{case_id}/transition",
+        headers=authorization(unassigned_officer),
+        json={"new_stage": "verification", "reason": "Not assigned"},
+    )
+    assert forbidden_transition.status_code == 404
+
     officer_headers = authorization(accounts["officer"])
     for stage in ("verification", "objection", "award", "compensation", "possession"):
         transition = client.post(

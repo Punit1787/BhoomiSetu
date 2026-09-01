@@ -11,7 +11,7 @@ export type CaseStage =
 
 export interface SessionUser {
   id: string;
-  full_name: string;
+  name: string;
   email: string;
   role: Role;
 }
@@ -25,15 +25,16 @@ export interface AuthTokens {
 
 export interface CaseSummary {
   id: string;
-  case_number: string;
-  project_id: string;
+  case_number?: string;
+  project_id?: string;
   parcel_id: string;
-  landowner_id: string;
+  landowner_id?: string;
   current_stage: CaseStage;
-  status: string;
+  status?: string;
   assigned_officer_id?: string | null;
+  affected_family_count?: number;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
 }
 
 export interface StageHistory {

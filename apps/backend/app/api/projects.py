@@ -24,6 +24,7 @@ from app.schemas.domain import (
     StageHistoryResponse,
 )
 from app.services.audit import write_audit_log
+from app.services.case_access import accessible_case_or_404, scope_case_query
 from app.services.workflow import transition_case
 
 router = APIRouter(tags=["projects and cases"])
@@ -193,9 +194,10 @@ async def list_cases(
     officer_id: uuid.UUID | None = None,
     limit: int = Query(default=100, ge=1, le=500),
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    actor: User = Depends(get_current_user),
 ) -> list[AcquisitionCase]:
     query = select(AcquisitionCase).join(Parcel).join(Project)
+    query = scope_case_query(query, actor)
     if project_id:
         query = query.where(Project.id == project_id)
     if state:
@@ -212,11 +214,9 @@ async def list_cases(
 async def get_case(
     case_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(get_current_user),
+    actor: User = Depends(get_current_user),
 ) -> CaseDetailResponse:
-    acquisition_case = await db.get(AcquisitionCase, case_id)
-    if acquisition_case is None:
-        raise HTTPException(status_code=404, detail="Case not found")
+    acquisition_case = await accessible_case_or_404(db, case_id, actor)
     await db.refresh(acquisition_case, attribute_names=["stage_history"])
     response = CaseResponse.model_validate(acquisition_case).model_dump()
     return CaseDetailResponse(
@@ -234,9 +234,9 @@ async def change_case_stage(
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_roles(*TRANSITION_ROLES)),
 ) -> AcquisitionCase:
-    acquisition_case = await db.get(AcquisitionCase, case_id, with_for_update=True)
-    if acquisition_case is None:
-        raise HTTPException(status_code=404, detail="Case not found")
+    acquisition_case = await accessible_case_or_404(
+        db, case_id, actor, for_update=True
+    )
     await transition_case(db, acquisition_case, payload.new_stage, actor.id, payload.reason)
     await db.commit()
     return acquisition_case

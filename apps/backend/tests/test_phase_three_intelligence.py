@@ -56,6 +56,16 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
         json={"khasra_survey_no": f"AI-{suffix[:6]}", "polygon": polygon},
     )
     assert parcel.status_code == 201, parcel.text
+    linked_owner = client.post(
+        f"/parcels/{parcel.json()['id']}/landowners",
+        headers=authority_headers,
+        json={
+            "name": "Asha Dattatray Patil",
+            "contact": "demo-only@example.invalid",
+            "user_id": landowner["user"]["id"],
+        },
+    )
+    assert linked_owner.status_code == 201, linked_owner.text
     acquisition_case = client.post(
         "/cases",
         headers=authority_headers,
