@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 
+from app.services.predictive import predict
 from tests.test_phase_one_api import authorization, register
 
 
@@ -131,6 +132,21 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
         assert prediction.json()["training_data"] == "synthetic"
         assert prediction.json()["validated_on_real_data"] is False
         assert prediction.json()["holdout_mae_days"] > 0
+        model_name = (
+            "delay_model.joblib" if endpoint == "delay" else "compensation_timeline_model.joblib"
+        )
+        expected = predict(model_name, {
+            "project_type": "Highway",
+            "state": "Maharashtra",
+            "district": "Pune",
+            "current_stage": "notification",
+            "parcel_count": 1,
+            "objection_count": 1,
+            "document_turnaround_days": 12,
+            "officer_open_load": 1,
+            "days_in_compensation": 0,
+        })
+        assert prediction.json() == expected.model_dump()
         assert all(
             item["feature"]
             in {
@@ -153,6 +169,15 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
     )
     assert aggregate.status_code == 200, aggregate.text
     assert aggregate.json()["case_count"] >= 1
+    assert client.get(
+        "/predictions/aggregate", headers=authorization(landowner)
+    ).status_code == 403
+    empty = client.get(
+        f"/predictions/aggregate?state=missing-{suffix}", headers=authorization(district)
+    )
+    assert empty.json() == {
+        "case_count": 0, "high_risk_pct": 0, "avg_disbursal_days": 0, "trend": "stable"
+    }
 
     intersection = client.post(
         "/gis/parcels/intersect",

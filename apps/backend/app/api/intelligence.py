@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
 from PIL import UnidentifiedImageError
 from pydantic import ValidationError
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.concurrency import run_in_threadpool
 
@@ -30,7 +30,7 @@ from app.services.case_access import accessible_case_or_404, scope_case_query
 from app.services.document_ai import extract_document
 from app.services.grievance_ai import classify_grievance
 from app.services.master_data import DOCUMENT_TYPES, missing_document_fields, validate_survey_number
-from app.services.predictive import predict
+from app.services.predictive import predict, predict_days
 
 router = APIRouter(tags=["AI, predictions and GIS"])
 OFFICER_ROLES = (
@@ -248,41 +248,58 @@ async def confirm_grievance(
     }
 
 
-async def _prediction_features(db: AsyncSession, case_id: uuid.UUID) -> dict[str, Any]:
-    row = (
-        await db.execute(
-            select(AcquisitionCase, Parcel, Project)
-            .join(Parcel, AcquisitionCase.parcel_id == Parcel.id)
-            .join(Project, Parcel.project_id == Project.id)
-            .where(AcquisitionCase.id == case_id)
-        )
-    ).one_or_none()
-    if row is None:
-        raise HTTPException(status_code=404, detail="Case not found")
-    case, _, project = row
-    objection_count = await db.scalar(
-        select(func.count()).select_from(Grievance).where(Grievance.case_id == case_id)
+def _prediction_query() -> Select:
+    objections = (
+        select(Grievance.case_id, func.count().label("count"))
+        .group_by(Grievance.case_id)
+        .subquery()
     )
-    officer_load = (
-        await db.scalar(
-            select(func.count())
-            .select_from(AcquisitionCase)
-            .where(AcquisitionCase.assigned_officer_id == case.assigned_officer_id)
-        )
-        if case.assigned_officer_id
-        else 0
+    officer_loads = (
+        select(AcquisitionCase.assigned_officer_id, func.count().label("count"))
+        .group_by(AcquisitionCase.assigned_officer_id)
+        .subquery()
     )
+    return (
+        select(
+            AcquisitionCase,
+            Project,
+            func.coalesce(objections.c.count, 0),
+            func.coalesce(officer_loads.c.count, 0),
+        )
+        .select_from(AcquisitionCase)
+        .join(Parcel, AcquisitionCase.parcel_id == Parcel.id)
+        .join(Project, Parcel.project_id == Project.id)
+        .outerjoin(objections, objections.c.case_id == AcquisitionCase.id)
+        .outerjoin(
+            officer_loads,
+            officer_loads.c.assigned_officer_id == AcquisitionCase.assigned_officer_id,
+        )
+    )
+
+
+def _row_features(
+    case: AcquisitionCase, project: Project, objection_count: int, officer_load: int
+) -> dict[str, Any]:
     return {
         "project_type": project.project_type,
         "state": project.state,
         "district": project.district,
         "current_stage": case.current_stage.value,
         "parcel_count": 1,
-        "objection_count": objection_count or 0,
+        "objection_count": objection_count,
         "document_turnaround_days": 12,
-        "officer_open_load": officer_load or 0,
+        "officer_open_load": officer_load,
         "days_in_compensation": 18 if case.current_stage.value == "compensation" else 0,
     }
+
+
+async def _prediction_features(db: AsyncSession, case_id: uuid.UUID) -> dict[str, Any]:
+    row = (
+        await db.execute(_prediction_query().where(AcquisitionCase.id == case_id))
+    ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail="Case not found")
+    return _row_features(*row)
 
 
 @router.get("/cases/{case_id}/prediction/delay", response_model=PredictionResponse)
@@ -292,7 +309,8 @@ async def delay_prediction(
     actor: User = Depends(get_current_user),
 ) -> PredictionResponse:
     await accessible_case_or_404(db, case_id, actor)
-    return predict("delay_model.joblib", await _prediction_features(db, case_id))
+    features = await _prediction_features(db, case_id)
+    return await run_in_threadpool(predict, "delay_model.joblib", features)
 
 
 @router.get("/cases/{case_id}/prediction/compensation-timeline", response_model=PredictionResponse)
@@ -302,7 +320,8 @@ async def compensation_prediction(
     actor: User = Depends(get_current_user),
 ) -> PredictionResponse:
     await accessible_case_or_404(db, case_id, actor)
-    return predict("compensation_timeline_model.joblib", await _prediction_features(db, case_id))
+    features = await _prediction_features(db, case_id)
+    return await run_in_threadpool(predict, "compensation_timeline_model.joblib", features)
 
 
 @router.get("/predictions/aggregate", response_model=AggregatePredictionResponse)
@@ -312,26 +331,24 @@ async def aggregate_predictions(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_roles(UserRole.DISTRICT_ADMIN, UserRole.SENIOR_ADMIN)),
 ) -> AggregatePredictionResponse:
-    query = select(AcquisitionCase.id).join(Parcel).join(Project)
+    query = _prediction_query()
     if state:
         query = query.where(Project.state.ilike(state))
     if project_type:
         query = query.where(Project.project_type.ilike(project_type))
-    case_ids = list(await db.scalars(query.limit(500)))
-    if not case_ids:
+    rows = (await db.execute(query.order_by(AcquisitionCase.id).limit(500))).all()
+    if not rows:
         return AggregatePredictionResponse(
             case_count=0, high_risk_pct=0, avg_disbursal_days=0, trend="stable"
         )
-    delays, compensation = [], []
-    for case_id in case_ids:
-        features = await _prediction_features(db, case_id)
-        delays.append(predict("delay_model.joblib", features))
-        compensation.append(
-            predict("compensation_timeline_model.joblib", features).predicted_days_remaining
-        )
-    high_pct = round(sum(item.risk_band == "high" for item in delays) * 100 / len(delays), 1)
+    features = [_row_features(*row) for row in rows]
+    delays = await run_in_threadpool(predict_days, "delay_model.joblib", features)
+    compensation = await run_in_threadpool(
+        predict_days, "compensation_timeline_model.joblib", features
+    )
+    high_pct = round(sum(days >= 150 for days in delays) * 100 / len(delays), 1)
     return AggregatePredictionResponse(
-        case_count=len(case_ids),
+        case_count=len(rows),
         high_risk_pct=high_pct,
         avg_disbursal_days=round(sum(compensation) / len(compensation), 1),
         trend="up" if high_pct > 30 else "stable",
