@@ -27,8 +27,7 @@ Render health-check path (existing services may require updating this setting).
 
 Import `Punit1787/BhoomiSetu`, root directory `apps/frontend`, production branch
 `main`. Set `NEXT_PUBLIC_API_BASE_URL=https://bhoomsetu-api.onrender.com` before
-building. No Supabase variables are required. The UI refreshes database-backed
-queries every 30 seconds while open; it does not depend on Supabase Realtime.
+building. The UI refreshes database-backed queries every 30 seconds while open.
 
 ## Keepalive and free hosting
 
@@ -56,6 +55,5 @@ backup/authorized database plan separately. No paid upgrade is part of this chan
 4. Check `/ready`, `/openapi.json`, CORS and real seeded-account login.
 5. Check the mobile menu, case documents/grievances, manager reports and inbox.
 
-`railway.toml` and `infra/supabase` remain optional alternatives, not dependencies
-of the current deployment. Do not run `reset_demo.sh` against hosted data unless
-an intentional reset has been authorized.
+Do not run `reset_demo.sh` against hosted data unless an intentional reset has
+been authorized.

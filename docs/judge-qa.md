@@ -9,4 +9,4 @@
 - **Privacy?** No real citizen data is in the prototype. Production design applies data minimisation, role separation, auditability and purpose limitation consistent with the DPDP framework.
 - **Sustainability model?** Government-hosted state deployments with implementation, integration and support contracts; reusable open standards keep states from being locked into one vendor.
 - **Why PostgreSQL/PostGIS?** Acquisition is relational and spatial. Transactions preserve workflow integrity; PostGIS performs real geometry storage and intersection queries in the same database.
-- **What fails safely offline?** The complete local stack, deterministic fixtures, OCR, trained models and demo data run without hosted services; only external map tiles and hosted realtime need connectivity.
+- **What fails safely offline?** The complete local stack, deterministic fixtures, OCR, trained models and demo data run without hosted services; external map tiles need connectivity. The hosted portal also needs its API connection.

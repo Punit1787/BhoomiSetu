@@ -65,6 +65,3 @@ export const demoParcels: ParcelFeature[] = demoCases.map((item, index) => {
     ],
   };
 });
-
-export const stageLabel = (stage: string) =>
-  stage.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());

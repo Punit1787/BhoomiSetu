@@ -82,7 +82,6 @@ clears demo interactions and restores the canonical showcase.
 |---|---|
 | `apps/backend` | FastAPI APIs, models, migrations, training and tests |
 | `apps/frontend` | Next.js portals and frontend tests |
-| `infra/supabase` | Optional hosted realtime publication SQL |
 | `scripts` | Bootstrap, verification, reset and offline demo commands |
 | `docs/demo-script.md` | Presenter walkthrough |
 | `docs/judge-qa.md` | Concise responsible-technology answers |
