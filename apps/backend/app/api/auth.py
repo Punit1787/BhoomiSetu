@@ -6,8 +6,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
+from app.core.dependencies import require_roles
 from app.core.security import create_token, decode_token, hash_password, verify_password
 from app.models import User
+from app.models.enums import UserRole
 from app.schemas.auth import (
     LoginRequest,
     RefreshRequest,
@@ -30,6 +32,21 @@ def build_token_response(user: User) -> TokenResponse:
 
 @router.post("/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
 async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+    if payload.role != UserRole.LANDOWNER:
+        raise HTTPException(403, "Staff accounts must be provisioned by an administrator")
+    return await provision_user(payload, db)
+
+
+@router.post("/users", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
+async def create_staff_account(
+    payload: RegisterRequest,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(require_roles(UserRole.SENIOR_ADMIN)),
+) -> TokenResponse:
+    return await provision_user(payload, db, actor)
+
+
+async def provision_user(payload: RegisterRequest, db: AsyncSession, actor: User | None = None):
     user = User(
         name=payload.name.strip(),
         email=payload.email,
@@ -39,7 +56,9 @@ async def register(payload: RegisterRequest, db: AsyncSession = Depends(get_db))
     db.add(user)
     try:
         await db.flush()
-        await write_audit_log(db, user.id, f"user.register:{user.id}:{user.role.value}")
+        await write_audit_log(
+            db, actor.id if actor else user.id, f"user.register:{user.id}:{user.role.value}"
+        )
         await db.commit()
     except IntegrityError:
         await db.rollback()

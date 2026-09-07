@@ -46,9 +46,9 @@ class GrievanceResponse(BaseModel):
 
 
 class GrievanceConfirmationRequest(BaseModel):
-    category: str
-    priority: str
-    department: str
+    category: Literal["compensation", "ownership", "measurement", "rehabilitation", "process"]
+    priority: Literal["low", "medium", "high", "urgent"]
+    department: str = Field(min_length=3, max_length=120)
 
 
 class FeatureContribution(BaseModel):

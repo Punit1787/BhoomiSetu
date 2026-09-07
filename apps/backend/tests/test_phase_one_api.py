@@ -5,9 +5,36 @@ import asyncpg
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.core.security import hash_password
 
 
 def register(client: TestClient, role: str, suffix: str) -> dict:
+    if role != "landowner":
+
+        async def provision():
+            connection = await asyncpg.connect(
+                settings.database_url.replace("postgresql+asyncpg", "postgresql")
+            )
+            try:
+                await connection.execute(
+                    "INSERT INTO users (id, name, email, role, password_hash) "
+                    "VALUES ($1,$2,$3,$4,$5)",
+                    uuid.uuid4(),
+                    f"Test {role}",
+                    f"{role}-{suffix}@example.test",
+                    role.upper(),
+                    hash_password("SecureTest123!"),
+                )
+            finally:
+                await connection.close()
+
+        asyncio.run(provision())
+        response = client.post(
+            "/auth/login",
+            json={"email": f"{role}-{suffix}@example.test", "password": "SecureTest123!"},
+        )
+        assert response.status_code == 200, response.text
+        return response.json()
     response = client.post(
         "/auth/register",
         json={
@@ -110,9 +137,7 @@ def test_complete_phase_one_case_journey(client: TestClient) -> None:
 
     outsider = register(client, "landowner", f"outsider-{suffix}")
     unassigned_officer = register(client, "officer", f"unassigned-{suffix}")
-    citizen_cases = client.get(
-        "/cases", headers=authorization(accounts["landowner"])
-    )
+    citizen_cases = client.get("/cases", headers=authorization(accounts["landowner"]))
     assert citizen_cases.status_code == 200
     assert [row["id"] for row in citizen_cases.json()] == [case_id]
     for account in (outsider, unassigned_officer):
@@ -159,8 +184,11 @@ def test_complete_phase_one_case_journey(client: TestClient) -> None:
             settings.database_url.replace("postgresql+asyncpg://", "postgresql://")
         )
         try:
-            return await connection.fetchval("SELECT count(*) FROM audit_log")
+            return await connection.fetchval(
+                "SELECT count(*) FROM audit_log WHERE action LIKE $1",
+                f"case.transition:{case_id}:%",
+            )
         finally:
             await connection.close()
 
-    assert asyncio.run(count_audit_rows()) >= 14
+    assert asyncio.run(count_audit_rows()) == 5

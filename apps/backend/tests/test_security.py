@@ -34,7 +34,12 @@ def test_refresh_token_cannot_be_used_as_access_token() -> None:
 
 def test_production_rejects_default_development_secrets() -> None:
     with pytest.raises(ValidationError, match="must be changed"):
-        Settings(app_environment="production", _env_file=None)
+        Settings(
+            app_environment="production",
+            _env_file=None,
+            jwt_secret="local-development-test",
+            jwt_refresh_secret="local-development-test",
+        )
 
 
 def test_provider_database_url_uses_async_driver() -> None:
@@ -44,3 +49,17 @@ def test_provider_database_url_uses_async_driver() -> None:
     )
 
     assert settings.database_url.startswith("postgresql+asyncpg://")
+
+
+@pytest.mark.parametrize("role", ["officer", "project_authority", "district_admin", "senior_admin"])
+def test_public_registration_cannot_create_staff(client, role):
+    response = client.post(
+        "/auth/register",
+        json={
+            "name": "Untrusted User",
+            "email": "untrusted@example.test",
+            "password": "SecureTest123!",
+            "role": role,
+        },
+    )
+    assert response.status_code == 403

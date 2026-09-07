@@ -9,7 +9,7 @@ class RegisterRequest(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     email: str = Field(min_length=5, max_length=255)
     password: str = Field(min_length=10, max_length=128)
-    role: UserRole
+    role: UserRole = UserRole.LANDOWNER
 
     @field_validator("email")
     @classmethod
@@ -30,6 +30,7 @@ class RefreshRequest(BaseModel):
 
 
 class UserResponse(BaseModel):
+    locale: str = "en"
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID

@@ -1,5 +1,6 @@
 import io
 import uuid
+from pathlib import Path
 
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
@@ -10,7 +11,15 @@ from tests.test_phase_one_api import authorization, register
 def make_sample_land_record() -> bytes:
     image = Image.new("RGB", (1400, 820), "white")
     draw = ImageDraw.Draw(image)
-    font = ImageFont.truetype("/System/Library/Fonts/Helvetica.ttc", 42)
+    font_path = next(
+        path
+        for path in (
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+        )
+        if Path(path).exists()
+    )
+    font = ImageFont.truetype(font_path, 42)
     lines = [
         "MAHARASHTRA LAND OWNERSHIP RECORD",
         "Document Type: 7/12 Land Extract",
@@ -103,8 +112,7 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
         headers=authorization(landowner),
         json={
             "description": (
-                "My compensation payment has not been received for three months "
-                "and this is urgent."
+                "My compensation payment has not been received for three months and this is urgent."
             )
         },
     )

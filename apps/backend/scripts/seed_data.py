@@ -23,6 +23,7 @@ from app.models import (
     RRStatus,
     User,
 )
+from app.models.domain import CaseDeadline
 from app.models.enums import CaseStage, ProjectStatus, UserRole
 from app.services.audit import write_audit_log
 
@@ -126,13 +127,18 @@ async def seed(*, reset_existing: bool = True) -> None:
             case_ids = [
                 case_id
                 for case_id in await db.scalars(
-                    select(AcquisitionCase.id)
-                    .join(Parcel)
-                    .where(Parcel.project_id == existing.id)
+                    select(AcquisitionCase.id).join(Parcel).where(Parcel.project_id == existing.id)
                 )
             ]
             if case_ids:
-                for model in (Document, Grievance, CompensationStatus, RRStatus, CaseStageHistory):
+                for model in (
+                    Document,
+                    Grievance,
+                    CompensationStatus,
+                    RRStatus,
+                    CaseDeadline,
+                    CaseStageHistory,
+                ):
                     await db.execute(delete(model).where(model.case_id.in_(case_ids)))
 
             officer = accounts[UserRole.OFFICER]
@@ -158,6 +164,7 @@ async def seed(*, reset_existing: bool = True) -> None:
                 current_stage = STAGE_PATH[index % len(STAGE_PATH)]
                 acquisition_case.current_stage = current_stage
                 acquisition_case.assigned_officer_id = officer.id
+                acquisition_case.displaced_family_count = 0
                 acquisition_case.affected_family_count = (index % 4) + 1
                 for from_stage, to_stage in zip(
                     STAGE_PATH[: STAGE_PATH.index(current_stage)],

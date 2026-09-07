@@ -1,10 +1,14 @@
 import json
 import uuid
+from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
+from PIL import UnidentifiedImageError
+from pydantic import ValidationError
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from starlette.concurrency import run_in_threadpool
 
 from app.core.database import get_db
 from app.core.dependencies import get_current_user, require_roles
@@ -13,6 +17,7 @@ from app.models.enums import DocumentStatus, UserRole
 from app.schemas.intelligence import (
     AggregatePredictionResponse,
     DocumentConfirmationRequest,
+    DocumentExtractedFields,
     DocumentExtractionResponse,
     GrievanceConfirmationRequest,
     GrievanceCreateRequest,
@@ -24,6 +29,7 @@ from app.services.audit import write_audit_log
 from app.services.case_access import accessible_case_or_404, scope_case_query
 from app.services.document_ai import extract_document
 from app.services.grievance_ai import classify_grievance
+from app.services.master_data import DOCUMENT_TYPES, missing_document_fields, validate_survey_number
 from app.services.predictive import predict
 
 router = APIRouter(tags=["AI, predictions and GIS"])
@@ -43,15 +49,18 @@ OFFICER_ROLES = (
 async def upload_and_extract_document(
     case_id: uuid.UUID,
     file: UploadFile = File(...),
+    document_type: str = Form(default="land_record"),
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(get_current_user),
 ) -> DocumentExtractionResponse:
-    await accessible_case_or_404(db, case_id, actor)
+    await accessible_case_or_404(db, case_id, actor, for_update=True)
+    if document_type not in DOCUMENT_TYPES:
+        raise HTTPException(422, "Choose a standard document type")
     if file.content_type not in {"image/png", "image/jpeg", "image/tiff"}:
         raise HTTPException(
             status_code=415, detail="OCR currently accepts PNG, JPEG or TIFF images"
         )
-    content = await file.read()
+    content = await file.read(10 * 1024 * 1024 + 1)
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Document exceeds the 10 MB limit")
     version = (
@@ -59,11 +68,16 @@ async def upload_and_extract_document(
             select(func.coalesce(func.max(Document.version), 0)).where(Document.case_id == case_id)
         )
     ) + 1
-    fields = await extract_document(content, file.content_type or "image/png")
+    try:
+        fields = await extract_document(content, file.content_type or "image/png")
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise HTTPException(422, "Cannot read this image. Upload a valid document scan.") from exc
     document = Document(
         case_id=case_id,
         version=version,
-        file_url=f"local://{file.filename}",
+        file_url=f"metadata-only://{(file.filename or 'scan').split('/')[-1][:200]}",
+        document_type=document_type,
+        created_at=datetime.now(UTC),
         extracted_fields=fields.model_dump(),
         status=DocumentStatus.EXTRACTED,
     )
@@ -89,7 +103,15 @@ async def reextract_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     await accessible_case_or_404(db, document.case_id, actor)
-    fields = await extract_document(await file.read(), file.content_type or "image/png")
+    if file.content_type not in {"image/png", "image/jpeg", "image/tiff"}:
+        raise HTTPException(415, "OCR currently accepts PNG, JPEG or TIFF images")
+    content = await file.read(10 * 1024 * 1024 + 1)
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(413, "Document exceeds the 10 MB limit")
+    try:
+        fields = await extract_document(content, file.content_type or "image/png")
+    except (UnidentifiedImageError, OSError, ValueError) as exc:
+        raise HTTPException(422, "Cannot read this image") from exc
     document.extracted_fields = fields.model_dump()
     document.status = DocumentStatus.EXTRACTED
     await write_audit_log(
@@ -112,7 +134,29 @@ async def confirm_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     await accessible_case_or_404(db, document.case_id, actor)
+    allowed = {
+        "owner_name",
+        "khasra_survey_number",
+        "area_hectares",
+        "document_type",
+        "document_date",
+    }
+    if set(payload.fields) - allowed:
+        raise HTTPException(422, "Only extracted record fields can be corrected")
     merged = {**(document.extracted_fields or {}), **payload.fields}
+    try:
+        merged = DocumentExtractedFields.model_validate(merged).model_dump()
+    except ValidationError as exc:
+        raise HTTPException(422, "Invalid extracted fields") from exc
+    if payload.approved:
+        missing = missing_document_fields(document.document_type, merged)
+        if missing:
+            raise HTTPException(422, "Required before verification: " + ", ".join(missing))
+        if merged.get("khasra_survey_number"):
+            try:
+                validate_survey_number(merged["khasra_survey_number"])
+            except ValueError as exc:
+                raise HTTPException(422, str(exc)) from exc
     document.extracted_fields = merged
     document.status = DocumentStatus.VERIFIED if payload.approved else DocumentStatus.REJECTED
     await write_audit_log(db, actor.id, f"document.confirm:{document.id}:{document.status}")
@@ -134,9 +178,11 @@ async def create_and_classify_grievance(
     actor: User = Depends(get_current_user),
 ) -> GrievanceResponse:
     await accessible_case_or_404(db, case_id, actor)
-    classification = classify_grievance(payload.description)
+    classification = await run_in_threadpool(classify_grievance, payload.description)
     grievance = Grievance(
         case_id=case_id,
+        description=payload.description,
+        created_at=datetime.now(UTC),
         category=classification.category,
         priority=classification.priority,
         department=classification.suggested_department,
@@ -161,12 +207,14 @@ async def classify_existing_grievance(
     if grievance is None:
         raise HTTPException(status_code=404, detail="Grievance not found")
     await accessible_case_or_404(db, grievance.case_id, actor)
-    classification = classify_grievance(payload.description)
+    classification = await run_in_threadpool(classify_grievance, payload.description)
     grievance.category, grievance.priority, grievance.department = (
         classification.category,
         classification.priority,
         classification.suggested_department,
     )
+    grievance.description = payload.description
+    await write_audit_log(db, actor.id, f"grievance.reclassify:{grievance.id}")
     await db.commit()
     return GrievanceResponse(
         id=grievance.id, case_id=grievance.case_id, classification=classification

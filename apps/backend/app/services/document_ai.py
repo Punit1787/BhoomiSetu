@@ -6,6 +6,7 @@ import re
 import httpx
 import pytesseract
 from PIL import Image
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
 from app.schemas.intelligence import DocumentExtractedFields
@@ -76,5 +77,7 @@ async def extract_document(content: bytes, media_type: str) -> DocumentExtracted
         except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError):
             pass
     image = Image.open(io.BytesIO(content)).convert("RGB")
-    text = pytesseract.image_to_string(image, lang="eng+mar+hin")
+    text = await run_in_threadpool(
+        pytesseract.image_to_string, image, lang="eng+mar+hin", timeout=45
+    )
     return _parse_ocr_text(text)
