@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "./api-client";
+import { api, apiFetch } from "./api-client";
 
 const authState = vi.hoisted(() => ({
   accessToken: null as string | null,
   refreshToken: null as string | null,
   demoMode: false,
   setSession: vi.fn(),
+  logout: vi.fn(),
 }));
 
 vi.mock("./auth-store", () => ({
@@ -116,5 +117,26 @@ describe("portal API mutations", () => {
     expect(JSON.parse(String(init?.body))).toEqual({
       description: "Compensation has not arrived after approval.",
     });
+  });
+});
+
+
+describe("API failures and downloads", () => {
+  afterEach(() => { vi.restoreAllMocks(); authState.refreshToken = null; });
+  it("returns CSV as a downloadable blob", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("group,case_count\nPune,3", { headers: { "Content-Type": "text/csv" } }));
+    const blob = await apiFetch<Blob>("/reports/project");
+    expect(blob.size).toBeGreaterThan(0);
+    expect(blob.type).toContain("text/csv");
+  });
+  it("shows validation messages instead of raw JSON", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({ detail: [{ msg: "Displaced families cannot exceed affected families" }] }), { status: 422 }));
+    await expect(apiFetch("/cases/test/families", { method: "PATCH" })).rejects.toThrow("Displaced families cannot exceed affected families");
+  });
+  it("does not retry a wrong password with the previous session", async () => {
+    authState.refreshToken = "old-refresh";
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({detail: "Incorrect email or password"}), { status: 401 }));
+    await expect(api.login("wrong@example.test", "incorrect-password")).rejects.toThrow("Incorrect email or password");
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

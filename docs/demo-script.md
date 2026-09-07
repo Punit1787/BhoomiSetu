@@ -1,27 +1,36 @@
-# BhoomiSetu final demo script
+# Judge walkthrough
 
-Target length: 7–8 minutes. Use two presenters: Impact and Technical.
+Use the API sign-in with the prefilled synthetic accounts (`DemoPass123!`).
+“Explore with demo data” is a read-only browser preview and cannot save changes.
+Allow the free backend to wake before presenting.
 
-1. **Impact · 35 seconds — the problem.** “A family should not need five offices to learn where its land-acquisition case is stuck. BhoomiSetu creates one accountable journey from notification to possession.”
-2. **Technical · 30 seconds — architecture.** Show the five-role login. Explain that the platform orchestrates existing government systems; it does not replace DILRMP or BhoomiRashi.
-3. **Impact · 45 seconds — citizen view.** Sign in as Citizen → demo data. Open the second case. Point to the completed and pending timeline, responsible officer and due date.
-4. **Technical · 45 seconds — document intelligence.** Show upload and the Officer document-verification view. Explain strict structured extraction, Marathi/Hindi/English OCR fallback and mandatory human confirmation.
-5. **Technical · 35 seconds — officer mobile flow.** Use the narrow viewport. Confirm extracted fields and explain the next valid workflow transition.
-6. **Impact · 35 seconds — grievance.** Submit the compensation example. Explain AI category/priority/department suggestion and officer confirmation before routing.
-7. **Technical · 50 seconds — GIS and bottleneck.** Open Project Authority. Show 20 OSM-derived polygons, stage colours and click a parcel. Compare bottleneck counts to visible cases.
-8. **Technical · 35 seconds — interoperability.** Click “Check Maharashtra land record.” Explicitly read the fixture disclosure. Explain real API Setu onboarding requires consumer registration and publisher approval.
-9. **Technical · 45 seconds — responsible prediction.** Open Senior Admin. Show delay-risk and disbursal timeline. Say: “We never predict compensation amount; RFCTLARR makes that a statutory calculation.”
-10. **Impact · 35 seconds — public accountability.** Open District Admin’s audit view. Explain SHA-256 hash chaining is tamper-evident, not blockchain.
-11. **Impact · 25 seconds — close.** “BhoomiSetu gives families clarity, officers a workable queue, and leaders evidence to remove delays—one responsibility trail from land to trust.”
+1. **Citizen:** open Cases and its journey. Change Language to Marathi/Hindi;
+   try Read aloud if the browser has that voice. Explain the next stage and
+   distinguish recorded deadlines from an unrecorded date.
+2. **Documents:** select a case and upload a clear PNG/JPEG/TIFF land-record scan.
+   State that OCR fields are saved but original scans are not retained. Sign in
+   as Field Officer, review/correct fields, and confirm or reject the extraction.
+3. **Grievances:** submit a synthetic complaint as Citizen. As Field Officer,
+   confirm its category/priority/department, add a response and update status.
+4. **Workflow:** open an assigned case, provide a reason and advance one valid
+   stage. Show the recorded activity and corresponding milestone in Inbox.
+5. **Project Authority:** open Case records, choose that case and enter
+   sample amounts, family counts and a reference. Clearly identify them as demo
+   entries. Record a sample operational deadline; use statutory only with a real
+   applicable authority reference. Show the resulting dashboard and inbox update.
+6. **Map:** inspect a parcel and open its case. The basemap is OpenStreetMap;
+   the showcase boundaries are synthetic, not official cadastral records.
+7. **Reports:** select project/state/district/compensation, choose columns and
+   filters, preview, then export CSV or Print / save PDF. Blank amounts mean
+   not recorded, not zero. Show the equal month-to-date transition comparison.
+8. **Senior Administrator:** show the eight KPI groups, project comparisons,
+   delay/timeline estimates and audit-chain verification. Models use 1,800
+   synthetic histories: delay MAE 12.92 days/R² 0.951, compensation timeline MAE
+   5.83 days/R² 0.898. These are not real-world accuracy claims.
+9. **Adapter:** use the land-record lookup and read its fixture disclosure.
+   API Setu/NGDRS institutional access is not active.
 
-## Rehearsal ledger
-
-Run the sequence five times and record the result before claiming rehearsal complete.
-
-| Run | Date/time | Duration | Driver | Issues found | Passed |
-|---|---|---:|---|---|---|
-| 1 |  |  |  |  |  |
-| 2 |  |  |  |  |  |
-| 3 |  |  |  |  |  |
-| 4 |  |  |  |  |  |
-| 5 |  |  |  |  |  |
+Close with the practical benefit: one traceable case record for families,
+officers and reviewing authorities. No automated ownership, valuation or legal
+outcome is claimed. Rehearse using synthetic inputs; never reset hosted data
+just to prepare a presentation.

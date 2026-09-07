@@ -1,65 +1,61 @@
 # Deployment
 
-## Backend requirements
+Current hosts: [Vercel frontend](https://bhoomi-setu-steel.vercel.app),
+[Render API](https://bhoomsetu-api.onrender.com) and Render PostgreSQL/PostGIS.
+The repository remains private. Secrets belong in provider settings, never Git.
 
-The backend container runs the latest Alembic migration, creates the synthetic
-showcase only when it is absent, and then starts FastAPI. Container restarts do not
-reset persisted interactions.
-The host must provide:
+## Render
 
-- `DATABASE_URL` using the `postgresql+asyncpg://` driver form
-- `JWT_SECRET` with a long random value
-- `JWT_REFRESH_SECRET` with a different long random value
+The root `render.yaml` defines the Docker API and Render database. Startup runs
+Alembic and seeds the 20-case synthetic showcase **only if absent**; redeploys do
+not reset saved interactions. The operations migration adds fields/tables without
+inventing historic payment amounts, document dates or statutory deadlines.
+
+Required environment settings:
+
+- `DATABASE_URL`: Render supplies its database connection string. Configuration
+  normalizes `postgres://` / `postgresql://` to the async SQLAlchemy driver.
 - `APP_ENVIRONMENT=production`
-- `FRONTEND_ORIGIN` set to the deployed frontend origin
+- Different, strong `JWT_SECRET` and `JWT_REFRESH_SECRET` values
+- `FRONTEND_ORIGIN=https://bhoomi-setu-steel.vercel.app`
 
-PostGIS must be enabled once in the hosted database:
+The migration enables PostGIS. `/health` checks the API process; `/ready` also
+checks the database, PostGIS and current migration revision. Use `/ready` as the
+Render health-check path (existing services may require updating this setting).
 
-```sql
-CREATE EXTENSION IF NOT EXISTS postgis;
-```
+## Vercel
 
-## Render (selected backend host)
+Import `Punit1787/BhoomiSetu`, root directory `apps/frontend`, production branch
+`main`. Set `NEXT_PUBLIC_API_BASE_URL=https://bhoomsetu-api.onrender.com` before
+building. No Supabase variables are required. The UI refreshes database-backed
+queries every 30 seconds while open; it does not depend on Supabase Realtime.
 
-The root [`render.yaml`](../render.yaml) defines a free Docker web service,
-generated JWT secrets, the `/health` probe and prompts for the Supabase database
-URL and final frontend origin. Import the private Git repository as a Render
-Blueprint. Do not put either prompted value in Git.
+## Keepalive and free hosting
 
-The Supabase connection string must use SQLAlchemy's async driver form. Convert
-the provider URL prefix from `postgresql://` to `postgresql+asyncpg://` without
-changing the remaining credentials or query parameters.
+`.github/workflows/keepalive.yml` sends a request every ten minutes on **12 September
+2026, India time**, for judging (00:07–23:57 IST). It also supports manual runs.
+The date guard prevents pings in later years or if GitHub delivers a job late.
+There is no continuous daily schedule, paid plan or spending-limit change.
 
-## Vercel frontend
+This private repository consumes Actions minutes: the judging-day schedule has
+144 jobs, plus any manual runs and ordinary CI. GitHub schedules can be delayed
+or dropped, so this cannot guarantee uptime. Open the portal before presenting.
 
-Import the same Git repository as a Vercel project and set its Root Directory to
-`apps/frontend`. Configure these deployment variables:
+[Render Free](https://render.com/docs/free) sleeps after 15 idle minutes, shares
+750 running hours per workspace/month, and its free Postgres database expires
+30 days after creation. Pings do not prevent database expiry, maintenance or quota
+suspension. Check the database expiry in Render before a presentation; arrange a
+backup/authorized database plan separately. No paid upgrade is part of this change.
 
-- `NEXT_PUBLIC_API_BASE_URL` — the Render `https://...onrender.com` origin;
-- `NEXT_PUBLIC_SUPABASE_URL` — the hosted Supabase project URL;
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` — the public anonymous key, never the service-role key.
+## Release checks
 
-After Vercel assigns the production URL, set Render's `FRONTEND_ORIGIN` to that
-exact origin and redeploy the backend so CORS permits the frontend.
+1. Run backend tests against a separate migrated PostGIS test database, plus
+   frontend lint, tests and a production build.
+2. Review the diff and push the tested revision to the connected deployment branch.
+3. Verify GitHub CI, Render and Vercel show the expected revision.
+4. Check `/ready`, `/openapi.json`, CORS and real seeded-account login.
+5. Check the mobile menu, case documents/grievances, manager reports and inbox.
 
-## Railway (inactive alternative)
-
-`railway.toml` remains as an alternative, but the current account trial is
-expired. Render is the selected path.
-
-## Verification
-
-After deployment, verify:
-
-1. `/health` returns HTTP 200.
-2. `/openapi.json` exposes the expected API paths.
-3. Alembic reports the latest revision.
-4. A seeded officer can log in.
-5. The frontend origin is allowed by CORS.
-
-## Secrets and teammate access
-
-Grant teammates access to the private GitHub, Render, Vercel and Supabase projects
-using each platform's member controls. Do not share one personal login. Store
-deployment values only in provider environment settings; local files are created
-from the committed `.env.example` templates. See [`team-setup.md`](team-setup.md).
+`railway.toml` and `infra/supabase` remain optional alternatives, not dependencies
+of the current deployment. Do not run `reset_demo.sh` against hosted data unless
+an intentional reset has been authorized.

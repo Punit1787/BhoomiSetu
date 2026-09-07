@@ -1,51 +1,211 @@
 "use client";
 
-import { Building2, ChevronRight, CircleUserRound, FileClock, Gauge, Home, Landmark, LogOut, Map, Menu, Scale, ShieldCheck, X } from "lucide-react";
+import {
+  Bell,
+  Building2,
+  ChevronRight,
+  FileText,
+  Gauge,
+  Home,
+  Landmark,
+  LogOut,
+  Map,
+  Menu,
+  MessageSquareText,
+  Settings,
+  ShieldCheck,
+  Table2,
+  X,
+} from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAuthStore } from "@/lib/auth-store";
-import { stageLabel } from "@/lib/demo-data";
+import { useT } from "@/lib/i18n";
 import type { Role } from "@/lib/types";
+import { Brand } from "./brand";
+import { LanguageSelect } from "./language-select";
 
-const roleIcon = { landowner: Home, officer: ShieldCheck, authority: Building2, district_admin: Landmark, senior_admin: Gauge };
+export type WorkspaceView =
+  | "overview"
+  | "cases"
+  | "documents"
+  | "grievances"
+  | "map"
+  | "operations"
+  | "reports"
+  | "alerts"
+  | "settings";
+const roleIcon = {
+  landowner: Home,
+  officer: ShieldCheck,
+  authority: Building2,
+  district_admin: Landmark,
+  senior_admin: Gauge,
+};
 
-export function PortalShell({ role, title, subtitle, children }: { role: Role; title: string; subtitle: string; children: ReactNode }) {
+export function PortalShell({
+  role,
+  view,
+  children,
+  unread = 0,
+}: {
+  role: Role;
+  view: WorkspaceView;
+  children: ReactNode;
+  unread?: number;
+}) {
   const router = useRouter();
-  const logout = useAuthStore((state) => state.logout);
-  const user = useAuthStore((state) => state.user);
-  const demoMode = useAuthStore((state) => state.demoMode);
-  const [open, setOpen] = useState(false);
-  const [clock, setClock] = useState("");
-  useEffect(() => {
-    const updateClock = () => setClock(new Intl.DateTimeFormat("en-IN", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date()));
-    updateClock();
-    const timer = window.setInterval(updateClock, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
+  const client = useQueryClient();
+  const t = useT();
+  const { user, demoMode, logout } = useAuthStore();
+  const dialog = useRef<HTMLDialogElement>(null);
   const Icon = roleIcon[role];
-  const links = [
-    { label: "Overview", icon: Gauge }, { label: "Cases", icon: FileClock },
-    { label: role === "landowner" ? "Grievances" : "Operations", icon: Scale }, { label: "Parcel map", icon: Map },
+  useEffect(() => {
+    dialog.current?.close();
+  }, [view]);
+  const items = [
+    { key: "overview", icon: Gauge },
+    { key: "cases", icon: FileText },
+    { key: "documents", icon: FileText },
+    { key: "grievances", icon: MessageSquareText },
+    { key: "map", icon: Map },
+    ...(role !== "landowner" ? [{ key: "operations", icon: Landmark }] : []),
+    ...(["authority", "district_admin", "senior_admin"].includes(role)
+      ? [{ key: "reports", icon: Table2 }]
+      : []),
+    { key: "alerts", icon: Bell },
+    { key: "settings", icon: Settings },
   ];
+  const link = (key: string) => `/portal/${role}?view=${key}`;
+  function signOut() {
+    logout();
+    client.clear();
+    router.push("/login");
+  }
+  const side = (
+    <>
+      <div className="sideBrand">
+        <Brand />
+      </div>
+      <div className="rolePill">
+        <Icon size={18} />
+        <span>{t(role)}</span>
+      </div>
+      <nav className="sideNav" aria-label="Workspace navigation">
+        {items.map(({ key, icon: ItemIcon }) => (
+          <Link
+            key={key}
+            href={link(key)}
+            className={view === key ? "active" : ""}
+            aria-current={view === key ? "page" : undefined}
+          >
+            <ItemIcon size={18} />
+            {t(key)}
+            {key === "alerts" && unread > 0 && (
+              <span className="navCount">{unread}</span>
+            )}
+          </Link>
+        ))}
+      </nav>
+      <div className="sideFooter">
+        <div>
+          <strong>{user?.name}</strong>
+          <small>{t(demoMode ? "demo" : "liveData")}</small>
+        </div>
+        <button
+          className="iconButton"
+          aria-label={t("logout")}
+          onClick={signOut}
+        >
+          <LogOut size={19} />
+        </button>
+      </div>
+    </>
+  );
   return (
     <div className="portalLayout">
-      <aside className={`sidebar ${open ? "open" : ""}`}>
-        <div className="sideBrand"><span className="brandMark">भू</span><div><strong>BhoomiSetu</strong><small>भूमि से विश्वास तक</small></div><button className="closeNav" onClick={() => setOpen(false)}><X /></button></div>
-        <div className="rolePill"><Icon size={17} /><span><small>Active portal</small>{stageLabel(role)}</span></div>
-        <nav className="sideNav" aria-label="Portal navigation">
-          {links.map(({ label, icon: LinkIcon }, index) => <button className={index === 0 ? "active" : ""} key={label}><LinkIcon size={18} />{label}<ChevronRight size={15} /></button>)}
-        </nav>
-        <div className="sideFooter"><span><CircleUserRound size={18} /><span><strong>{user?.name ?? "Demo User"}</strong><small>{demoMode ? "Demo data mode" : "Live API"}</small></span></span><button aria-label="Log out" onClick={() => { logout(); router.push("/login"); }}><LogOut size={18} /></button></div>
-      </aside>
-      <main className="portalMain">
-        <header className="portalHeader"><button className="menuButton" onClick={() => setOpen(true)}><Menu /></button><div><p>{stageLabel(role)} workspace</p><h1>{title}</h1><span>{subtitle}</span></div><div className={`livePill ${demoMode ? "demo" : ""}`}><i />{demoMode ? "Demo fallback" : "Live API"}</div></header>
-        <section className="systemPulse" aria-label="System status">
-          <span><i className={demoMode ? "pulseAmber" : ""} /><small>Data source</small><strong>{demoMode ? "Synthetic demo" : "FastAPI + Postgres"}</strong></span>
-          <span><i /><small>Map engine</small><strong>PostGIS · OSM</strong></span>
-          <span><i /><small>Workspace clock</small><strong>{clock || "Syncing…"}</strong></span>
-        </section>
-        {children}
-      </main>
+      <a href="#workspace-content" className="skipLink">
+        Skip to content
+      </a>
+      <aside className="sidebar">{side}</aside>
+      <dialog
+        ref={dialog}
+        className="mobileNav"
+        onClick={(event) => {
+          if (event.target === dialog.current) dialog.current?.close();
+        }}
+      >
+        <button
+          className="closeNav iconButton"
+          aria-label={t("close")}
+          onClick={() => dialog.current?.close()}
+        >
+          <X />
+        </button>
+        {side}
+      </dialog>
+      <div className="portalMain">
+        <header className="portalTopbar">
+          <button
+            className="menuButton iconButton"
+            aria-label={t("menu")}
+            onClick={() => dialog.current?.showModal()}
+          >
+            <Menu />
+          </button>
+          <span className="breadcrumb">
+            BhoomiSetu <ChevronRight size={13} /> {t(view)}
+          </span>
+          <div className="headerControls">
+            <LanguageSelect />
+            <Link
+              href={link("alerts")}
+              className="iconButton"
+              aria-label={`${t("alerts")}: ${unread}`}
+            >
+              <Bell size={19} />
+              {unread > 0 && <span className="notificationDot" />}
+            </Link>
+            <span className="avatar" aria-label={user?.name}>
+              {user?.name
+                .split(" ")
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join("")}
+            </span>
+          </div>
+        </header>
+        <header className="workspaceHeading">
+          <div>
+            <p className="eyebrow">{t(role)} · BhoomiSetu</p>
+            <h1>{t(view)}</h1>
+            <p>
+              {role === "landowner"
+                ? "Your land, documents and next steps in one place."
+                : "Track progress, review exceptions and record decisions."}
+            </p>
+          </div>
+          <span className="dataBadge">
+            <i />
+            {t(demoMode ? "demo" : "liveData")}
+          </span>
+        </header>
+        <main id="workspace-content" className="workspaceContent">
+          {demoMode && (
+            <p className="notice">
+              Synthetic preview. Sign in to the API to save records. No
+              government case data is used.
+            </p>
+          )}
+          {children}
+        </main>
+        <footer className="workspaceFooter">
+          SIH26016 prototype · Seeded cases and predictive training data are
+          synthetic. Government adapters are fixtures.
+        </footer>
+      </div>
     </div>
   );
 }

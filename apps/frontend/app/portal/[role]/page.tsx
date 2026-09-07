@@ -1,41 +1,39 @@
 "use client";
-/* eslint-disable react-hooks/set-state-in-effect */
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  AlertTriangle,
-  ArrowRight,
-  Banknote,
-  CheckCircle2,
-  ClipboardCheck,
-  Clock3,
-  Download,
-  FileCheck2,
-  FileText,
-  IndianRupee,
-  Landmark,
-  MessageSquareText,
-  Route,
-  Search,
-  UploadCloud,
-  Users,
-  WalletCards,
-} from "lucide-react";
+import { Suspense, useEffect, useState, useSyncExternalStore } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { CaseCard } from "@/components/case-card";
-import { PortalShell } from "@/components/portal-shell";
-import { StatusBadge } from "@/components/status-badge";
-import { Timeline } from "@/components/timeline";
-import { api } from "@/lib/api-client";
+import { Search } from "lucide-react";
+import { PortalShell, type WorkspaceView } from "@/components/portal-shell";
+import {
+  CaseJourney,
+  CaseRecordSummary,
+  DocumentsView,
+  GrievancesView,
+  useCaseOperations,
+} from "@/components/case-workspace";
+import { OperationsForms } from "@/components/operations-forms";
+import { Overview } from "@/components/overview";
+import { ReportsView } from "@/components/reports-view";
+import { InboxView } from "@/components/inbox-view";
+import { LanguageSelect } from "@/components/language-select";
+import {
+  Empty,
+  Loading,
+  QueryError,
+  useWorkspaceQuery,
+} from "@/components/workspace-common";
+import { api, apiFetch } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { caseReference, demoCases, demoParcels, stages } from "@/lib/demo-data";
-import type { CaseDetail, CaseStage, Role } from "@/lib/types";
+import { useT } from "@/lib/i18n";
+import type { CaseSummary, ParcelFeature, Role } from "@/lib/types";
+import type { Dashboard, Inbox } from "@/lib/operations-types";
 
 const ParcelMap = dynamic(() => import("@/components/parcel-map"), {
   ssr: false,
-  loading: () => <div className="mapLoading">Loading acquisition map…</div>,
+  loading: () => <Loading />,
 });
 const validRoles: Role[] = [
   "landowner",
@@ -44,781 +42,490 @@ const validRoles: Role[] = [
   "district_admin",
   "senior_admin",
 ];
+const views: WorkspaceView[] = [
+  "overview",
+  "cases",
+  "documents",
+  "grievances",
+  "map",
+  "operations",
+  "reports",
+  "alerts",
+  "settings",
+];
+const subscribe = () => () => undefined;
 
-function Metric({
-  label,
-  value,
-  detail,
-  icon: Icon,
-}: {
-  label: string;
-  value: string;
-  detail: string;
-  icon: typeof Clock3;
-}) {
+function demoDashboard(cases: CaseSummary[]): Dashboard {
+  const stageCounts = Object.fromEntries(
+    stages.map((stage) => [
+      stage,
+      cases.filter((item) => item.current_stage === stage).length,
+    ]),
+  );
+  return {
+    case_count: cases.length,
+    project_count: 1,
+    affected_families: cases.reduce(
+      (sum, item) => sum + (item.affected_family_count ?? 0),
+      0,
+    ),
+    displaced_families: 0,
+    area_notified_hectares: 0,
+    area_acquired_hectares: 0,
+    assessed_amount: null,
+    disbursed_amount: null,
+    compensation_recorded: 0,
+    compensation_disbursed: 0,
+    amounts_recorded: 0,
+    payment_amounts_recorded: 0,
+    rr_recorded: 0,
+    rr_completed: 0,
+    rr_families_supported: 0,
+    possession_cases: stageCounts.possession,
+    completion_pct: cases.length
+      ? Math.round((stageCounts.possession * 100) / cases.length)
+      : 0,
+    stages: stageCounts,
+    open_grievances: 0,
+    alerts_requiring_attention: 0,
+    recorded_deadlines_due: 0,
+    deadline_breaches: 0,
+    timeline_adherence_pct: null,
+    projects: [],
+    states: [],
+    districts: [],
+    trend: {
+      current_transitions: 0,
+      previous_transitions: 0,
+      difference: 0,
+      label: "History comparisons require an API session.",
+    },
+    generated_at: "",
+    notice:
+      "Synthetic preview. Unrecorded amounts and deadlines are not estimated.",
+  };
+}
+
+function SelectedCase({ item, role }: { item: CaseSummary; role: Role }) {
+  const { demoMode } = useAuthStore();
+  const t = useT();
+  const operations = useCaseOperations(item);
+  const detail = useWorkspaceQuery(["case", item.id], () =>
+    api.caseDetail(item.id),
+  );
+  const prediction = useWorkspaceQuery(
+    ["prediction", item.id],
+    () => api.delayPrediction(item.id),
+    role !== "landowner",
+  );
+  const [fixture, setFixture] = useState("");
+  const [checking, setChecking] = useState(false);
+  const current = demoMode
+    ? demoCases.find((row) => row.id === item.id)
+    : detail.data;
+  if (!demoMode && detail.isError)
+    return (
+      <QueryError error={detail.error} retry={() => void detail.refetch()} />
+    );
+  if (!current) return <Loading />;
   return (
-    <article className="metric">
-      <span>
-        <Icon size={19} />
-      </span>
-      <p>{label}</p>
-      <strong>{value}</strong>
-      <small>{detail}</small>
-    </article>
+    <div className="caseDetailStack">
+      <CaseJourney item={current} />
+      {operations.query.isError ? (
+        <QueryError
+          error={operations.query.error}
+          retry={() => void operations.query.refetch()}
+        />
+      ) : operations.data ? (
+        <CaseRecordSummary data={operations.data} />
+      ) : (
+        <Loading />
+      )}
+      {role !== "landowner" && (
+        <section className="panel">
+          <div className="panelHead">
+            <h2>Delay estimate</h2>
+            <span className="dataBadge">Synthetic-trained model</span>
+          </div>
+          {prediction.data ? (
+            <>
+              <div className="predictionNumber">
+                {prediction.data.predicted_days_remaining}
+                <small>estimated days remaining</small>
+              </div>
+              <p>
+                {prediction.data.risk_band} risk ·{" "}
+                {prediction.data.top_features
+                  .map((feature) => feature.feature.replaceAll("_", " "))
+                  .join(", ")}
+              </p>
+              <p className="modelDisclosure">
+                Synthetic holdout MAE {prediction.data.holdout_mae_days} days.
+                Not validated on real case histories. This estimate does not
+                determine compensation amounts or legal decisions.
+              </p>
+            </>
+          ) : prediction.isError ? (
+            <QueryError
+              error={prediction.error}
+              retry={() => void prediction.refetch()}
+            />
+          ) : (
+            <p>
+              {demoMode
+                ? "Sign in to calculate a model estimate."
+                : "Calculating…"}
+            </p>
+          )}
+        </section>
+      )}
+      {role === "authority" && (
+        <section className="panel">
+          <div className="panelHead">
+            <h2>Government adapter preview</h2>
+          </div>
+          <p className="notice">
+            API Setu / NGDRS fixtures — not live government data.
+          </p>
+          <button
+            className="button secondary"
+            disabled={demoMode || checking}
+            onClick={async () => {
+              setChecking(true);
+              try {
+                const result = await api.landRecord("PRR-1001");
+                setFixture(result.source.notice);
+              } catch (error) {
+                setFixture(
+                  error instanceof Error
+                    ? error.message
+                    : "Adapter unavailable",
+                );
+              } finally {
+                setChecking(false);
+              }
+            }}
+          >
+            Inspect sample land-record adapter
+          </button>
+          <p role="status">{fixture}</p>
+          <small>
+            {t("survey")}: PRR-1001 · fixed adapter example, unrelated to the
+            selected case.
+          </small>
+        </section>
+      )}
+    </div>
   );
 }
 
-function CitizenView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boolean }) {
-  const [selectedId, setSelectedId] = useState(cases[0]?.id);
-  const [file, setFile] = useState<File | null>(null);
-  const [grievance, setGrievance] = useState("");
-  const [documentStatus, setDocumentStatus] = useState("");
-  const [grievanceStatus, setGrievanceStatus] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const mine = cases.slice(0, 3);
-  const selectedSummary = cases.find((item) => item.id === selectedId) ?? cases[0];
-  const detailQuery = useQuery({
-    queryKey: ["case", selectedSummary?.id],
-    queryFn: () => api.caseDetail(selectedSummary!.id),
-    enabled: !demoMode && !!selectedSummary,
-  });
-  const selected = detailQuery.data ?? selectedSummary;
-  if (!selected) {
-    return <section className="panel emptyState"><FileText /><h2>No linked acquisition cases</h2><p>This account cannot view cases until an authorized project authority links it to a parcel.</p></section>;
-  }
-  const currentStageIndex = stages.indexOf(selected.current_stage);
-  const nextMilestone: CaseStage | "Complete" =
-    currentStageIndex >= 0 && currentStageIndex < stages.length - 1
-      ? stages[currentStageIndex + 1]
-      : "Complete";
-  const upload = async () => {
-    if (!file) return;
-    setSubmitting(true);
-    setDocumentStatus("");
-    try {
-      if (demoMode) {
-        await new Promise((resolve) => setTimeout(resolve, 450));
-        setDocumentStatus(`${file.name} extracted with demo OCR; officer confirmation required.`);
-      } else {
-        const result = await api.uploadDocument(selected.id, file);
-        setDocumentStatus(`${file.name} ${result.status}; ${Math.round(result.fields.confidence * 100)}% extraction confidence.`);
-      }
-    } catch (error) {
-      setDocumentStatus(error instanceof Error ? error.message : "Document upload failed.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  const submitGrievance = async () => {
-    if (grievance.trim().length < 10) {
-      setGrievanceStatus("Please provide at least 10 characters.");
-      return;
-    }
-    setSubmitting(true);
-    setGrievanceStatus("");
-    try {
-      if (demoMode) {
-        await new Promise((resolve) => setTimeout(resolve, 350));
-        setGrievanceStatus("Demo grievance classified as process · medium priority · officer confirmation required.");
-      } else {
-        const result = await api.createGrievance(selected.id, grievance);
-        setGrievanceStatus(`${result.classification.category} · ${result.classification.priority} priority · ${result.classification.suggested_department}`);
-      }
-      setGrievance("");
-    } catch (error) {
-      setGrievanceStatus(error instanceof Error ? error.message : "Grievance submission failed.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-  return (
-    <>
-      <section className="metricGrid">
-        <Metric
-          label="Active cases"
-          value={String(mine.length)}
-          detail={`Across ${mine.length} linked land parcel${mine.length === 1 ? "" : "s"}`}
-          icon={FileText}
-        />
-        <Metric
-          label="Compensation assessed"
-          value={demoMode ? "₹42.8L" : "Tracked"}
-          detail={demoMode ? "₹28.5L disbursed" : "No amount prediction is performed"}
-          icon={IndianRupee}
-        />
-        <Metric
-          label="Open grievance"
-          value={demoMode ? "1" : "Submit below"}
-          detail={demoMode ? "Response due in 2 days" : "Classification is human-confirmed"}
-          icon={MessageSquareText}
-        />
-        <Metric
-          label="Next milestone"
-          value={nextMilestone.replaceAll("_", " ")}
-          detail={nextMilestone === "Complete" ? "Lifecycle completed" : "Next legal workflow stage"}
-          icon={Clock3}
-        />
+function Workspace() {
+  const params = useParams<{ role: Role }>();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const t = useT();
+  const role = params.role;
+  const requested = searchParams.get("view") ?? "overview";
+  const view: WorkspaceView = views.includes(requested as WorkspaceView)
+    ? (requested as WorkspaceView)
+    : "overview";
+  const { user, demoMode } = useAuthStore();
+  const hydrated = useSyncExternalStore(
+    subscribe,
+    () => true,
+    () => false,
+  );
+  const authorized =
+    hydrated && !!user && user.role === role && validRoles.includes(role);
+  const caseQuery = useWorkspaceQuery(["cases"], api.cases, authorized);
+  const summaryQuery = useWorkspaceQuery(
+    ["dashboard"],
+    () => apiFetch<Dashboard>("/dashboard/summary"),
+    authorized,
+  );
+  const mapQuery = useWorkspaceQuery(
+    ["parcels"],
+    () => apiFetch<ParcelFeature[]>("/gis/parcels"),
+    authorized,
+  );
+  const inboxQuery = useWorkspaceQuery(
+    ["alerts"],
+    () => apiFetch<Inbox>("/alerts"),
+    authorized,
+  );
+  const [search, setSearch] = useState("");
+  const stageFilter = searchParams.get("stage") ?? "all";
+  useEffect(() => {
+    if (hydrated && !user) router.replace("/login");
+    else if (hydrated && (!validRoles.includes(role) || user?.role !== role))
+      router.replace("/forbidden");
+  }, [hydrated, user, role, router]);
+  if (!authorized) return <Loading />;
+  const cases = demoMode
+    ? role === "landowner"
+      ? demoCases.slice(0, 3)
+      : demoCases
+    : (caseQuery.data ?? []);
+  const parcels = demoMode
+    ? demoParcels.filter((parcel) =>
+        cases.some((item) => item.id === parcel.case_id),
+      )
+    : (mapQuery.data ?? []);
+  const dashboard = demoMode ? demoDashboard(cases) : summaryQuery.data;
+  const inbox = demoMode ? { items: [], generated_at: "" } : inboxQuery.data;
+  const selected =
+    cases.find((item) => item.id === searchParams.get("case")) ?? cases[0];
+  const filtered = cases.filter(
+    (item) =>
+      (stageFilter === "all" || item.current_stage === stageFilter) &&
+      `${caseReference(item)} ${parcels.find((parcel) => parcel.case_id === item.id)?.survey_number ?? ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+  );
+  const target = (key: string, caseId?: string) =>
+    `/portal/${role}?view=${key}${caseId ? `&case=${caseId}` : ""}`;
+  const canReport = ["authority", "district_admin", "senior_admin"].includes(
+    role,
+  );
+  let body;
+  if (!demoMode && caseQuery.isError)
+    body = (
+      <QueryError
+        error={caseQuery.error}
+        retry={() => void caseQuery.refetch()}
+      />
+    );
+  else if (!demoMode && caseQuery.isPending) body = <Loading />;
+  else if (view === "overview")
+    body = summaryQuery.isError ? (
+      <QueryError
+        error={summaryQuery.error}
+        retry={() => void summaryQuery.refetch()}
+      />
+    ) : dashboard ? (
+      <Overview dashboard={dashboard} inbox={inbox} />
+    ) : (
+      <Loading />
+    );
+  else if (view === "reports")
+    body = canReport ? (
+      <ReportsView dashboard={dashboard} />
+    ) : (
+      <Empty>This role cannot access management reports.</Empty>
+    );
+  else if (view === "alerts")
+    body = inboxQuery.isError ? (
+      <QueryError
+        error={inboxQuery.error}
+        retry={() => void inboxQuery.refetch()}
+      />
+    ) : inbox ? (
+      <InboxView inbox={inbox} />
+    ) : (
+      <Loading />
+    );
+  else if (view === "settings")
+    body = (
+      <section className="panel">
+        <div className="panelHead">
+          <h2>{t("account")}</h2>
+        </div>
+        <dl className="metadataGrid">
+          <div>
+            <dt>Name</dt>
+            <dd>{user.name}</dd>
+          </div>
+          <div>
+            <dt>{t("email")}</dt>
+            <dd>{user.email}</dd>
+          </div>
+          <div>
+            <dt>Role</dt>
+            <dd>{t(role)}</dd>
+          </div>
+        </dl>
+        <h3>{t("language")}</h3>
+        <LanguageSelect />
+        <p className="helper">
+          Interface labels and stage names are translated. Submitted records and
+          extracted text stay in their original language. Read-aloud depends on
+          installed browser voices.
+        </p>
       </section>
-      <section className="contentGrid citizenGrid">
-        <div className="panel">
+    );
+  else if (view === "map")
+    body = mapQuery.isError ? (
+      <QueryError
+        error={mapQuery.error}
+        retry={() => void mapQuery.refetch()}
+      />
+    ) : !demoMode && mapQuery.isPending ? (
+      <Loading />
+    ) : (
+      <section className="panel mapPanel">
+        <div className="panelHead">
+          <div>
+            <h2>{t("map")}</h2>
+            <p className="helper">
+              {parcels.length} accessible parcels · synthetic showcase
+              boundaries, OSM basemap
+            </p>
+          </div>
+        </div>
+        {parcels.length ? (
+          <ParcelMap
+            parcels={parcels}
+            onSelect={(id) => router.push(target("cases", id))}
+          />
+        ) : (
+          <Empty>No parcel geometry available for these cases.</Empty>
+        )}
+        <div className="mapLegend">
+          {stages.map((stage) => (
+            <span key={stage}>
+              <i className={`stage-${stage}`} />
+              {t(stage)}
+            </span>
+          ))}
+        </div>
+      </section>
+    );
+  else if (!cases.length) body = <Empty>{t("noCases")}</Empty>;
+  else if (view === "cases")
+    body = (
+      <div className="caseWorkspace">
+        <section className="panel">
           <div className="panelHead">
-            <div>
-              <p className="sectionLabel">My land acquisition cases</p>
-              <h2>Know exactly where you stand</h2>
-            </div>
-            <span className="count">{mine.length} case{mine.length === 1 ? "" : "s"}</span>
+            <h2>{t("cases")}</h2>
+            <span className="count">
+              {cases.length}
+              {!demoMode && cases.length === 500 ? "+" : ""}
+            </span>
+          </div>
+          <div className="caseFilters">
+            <label className="searchField">
+              <Search size={16} />
+              <input
+                aria-label={t("search")}
+                placeholder={t("search")}
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <label>
+              <span className="srOnly">Stage filter</span>
+              <select
+                value={stageFilter}
+                onChange={(event) => {
+                  const params = new URLSearchParams(searchParams.toString());
+                  params.set("stage", event.target.value);
+                  router.replace(`/portal/${role}?${params}`, {
+                    scroll: false,
+                  });
+                }}
+              >
+                <option value="all">{t("allStages")}</option>
+                {stages.map((stage) => (
+                  <option value={stage} key={stage}>
+                    {t(stage)}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
           <div className="caseList">
-            {mine.map((item) => (
-              <CaseCard
-                item={item}
-                selected={selected.id === item.id}
-                onSelect={() => setSelectedId(item.id)}
-                key={item.id}
-              />
-            ))}
+            {filtered.map((item) => {
+              const parcel = parcels.find((row) => row.case_id === item.id);
+              return (
+                <Link
+                  className={`caseRow ${selected?.id === item.id ? "selected" : ""}`}
+                  href={`${target("cases", item.id)}#case-detail`}
+                  key={item.id}
+                >
+                  <div>
+                    <strong>{caseReference(item)}</strong>
+                    <span className={`statusBadge stage-${item.current_stage}`}>
+                      {t(item.current_stage)}
+                    </span>
+                  </div>
+                  <p>
+                    {parcel?.survey_number ?? "Survey not loaded"} ·{" "}
+                    {parcel?.village ?? ""}
+                  </p>
+                  <div
+                    className="caseProgress"
+                    aria-label={`${stages.indexOf(item.current_stage) + 1} of 6 stages`}
+                  >
+                    {stages.map((stage, index) => (
+                      <i
+                        className={
+                          index <= stages.indexOf(item.current_stage)
+                            ? "done"
+                            : ""
+                        }
+                        key={stage}
+                      />
+                    ))}
+                  </div>
+                </Link>
+              );
+            })}
+            {filtered.length === 0 && <Empty>{t("noResults")}</Empty>}
           </div>
-        </div>
-        <div className="panel caseDetail">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">{caseReference(selected)}</p>
-              <h2>Case journey</h2>
-            </div>
-            <StatusBadge value={selected.current_stage} />
+        </section>
+        {selected && (
+          <div id="case-detail" tabIndex={-1} aria-label="Selected case">
+            <SelectedCase item={selected} role={role} key={selected.id} />
           </div>
-          <Timeline
-            current={selected.current_stage}
-            history={selected.stage_history}
-          />
-          <div className="responsibility">
-            <ClipboardCheck />
-            <span>
-              <small>Currently responsible</small>
-              <strong>Land Acquisition Officer · Pune District</strong>
-            </span>
-            <span className="due">Due in 4 days</span>
-          </div>
-        </div>
-      </section>
-      <section className="contentGrid actionGrid">
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Secure documents</p>
-              <h2>Upload or replace a document</h2>
-            </div>
-            <FileCheck2 />
-          </div>
-          <label className="dropzone">
-            <UploadCloud />
-            <strong>{file?.name || "Choose ownership document"}</strong>
-            <small>PNG, JPG or TIFF · Maximum 10 MB</small>
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/tiff"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-          {file && (
-            <button className="button primary" disabled={submitting} onClick={upload}>
-              <UploadCloud size={17} /> Extract document
-            </button>
-          )}
-          {documentStatus && <p className="successNote" role="status"><CheckCircle2 /> {documentStatus}</p>}
-        </div>
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Citizen support</p>
-              <h2>Raise a grievance</h2>
-            </div>
-            <MessageSquareText />
-          </div>
-          <textarea
-            placeholder="Describe the issue in your own words…"
-            value={grievance}
-            onChange={(event) => setGrievance(event.target.value)}
-          />
-          <button className="button primary" disabled={submitting} onClick={submitGrievance}>
-            Submit grievance <ArrowRight size={17} />
-          </button>
-          {grievanceStatus && <p className="successNote" role="status"><CheckCircle2 /> {grievanceStatus}</p>}
-          <div className="grievanceRow">
-            <span>
-              <i /> GRV-2026-018
-            </span>
-            <StatusBadge value="under_review" />
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function OfficerView({ cases, demoMode }: { cases: CaseDetail[]; demoMode: boolean }) {
-  const queryClient = useQueryClient();
-  const [stageFilter, setStageFilter] = useState("all");
-  const [actionStatus, setActionStatus] = useState("");
-  const [advancing, setAdvancing] = useState<string | null>(null);
-  const [stageOverrides, setStageOverrides] = useState<Record<string, CaseStage>>({});
-  const effectiveCases = cases.map((item) => ({
-    ...item,
-    current_stage: stageOverrides[item.id] ?? item.current_stage,
-  }));
-  const filtered =
-    stageFilter === "all"
-      ? effectiveCases.slice(0, 8)
-      : effectiveCases.filter((item) => item.current_stage === stageFilter).slice(0, 8);
-  const advance = async (item: CaseDetail) => {
-    const index = stages.indexOf(item.current_stage);
-    const nextStage = stages[index + 1];
-    if (!nextStage) return;
-    setAdvancing(item.id);
-    setActionStatus("");
-    try {
-      if (demoMode) await new Promise((resolve) => setTimeout(resolve, 350));
-      else await api.transition(item.id, nextStage, "Verified and advanced from officer portal");
-      setStageOverrides((current) => ({ ...current, [item.id]: nextStage }));
-      if (!demoMode) await queryClient.invalidateQueries({ queryKey: ["cases"] });
-      setActionStatus(`${caseReference(item)} advanced to ${nextStage}. ${demoMode ? "Demo state only." : "Audit and stage history recorded."}`);
-    } catch (error) {
-      setActionStatus(error instanceof Error ? error.message : "Stage transition failed.");
-    } finally {
-      setAdvancing(null);
-    }
-  };
-  return (
-    <>
-      <section className="metricGrid">
-        <Metric
-          label="Assigned cases"
-          value="12"
-          detail="3 need action today"
-          icon={FileText}
-        />
-        <Metric
-          label="Verification queue"
-          value="4"
-          detail="2 AI extractions ready"
-          icon={ClipboardCheck}
-        />
-        <Metric
-          label="Open grievances"
-          value="3"
-          detail="1 approaching SLA"
-          icon={MessageSquareText}
-        />
-        <Metric
-          label="Field completion"
-          value="84%"
-          detail="This week"
-          icon={CheckCircle2}
-        />
-      </section>
-      <section className="contentGrid officerGrid">
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Field workload</p>
-              <h2>Assigned cases</h2>
-            </div>
+        )}
+      </div>
+    );
+  else
+    body = (
+      <>
+        <div className="caseSelector">
+          <label>
+            {t("cases")}
             <select
-              value={stageFilter}
-              onChange={(event) => setStageFilter(event.target.value)}
+              value={selected?.id}
+              onChange={(event) =>
+                router.push(target(view, event.target.value))
+              }
             >
-              <option value="all">All stages</option>
-              {stages.map((stage) => (
-                <option key={stage}>{stage}</option>
+              {cases.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {caseReference(item)} · {t(item.current_stage)}
+                </option>
               ))}
             </select>
-          </div>
-          <div className="caseTable">
-            {filtered.map((item) => (
-              <div key={item.id}>
-                <span>
-                  <strong>{caseReference(item)}</strong>
-                  <small>Kharadi · Survey {item.parcel_id.slice(-3)}</small>
-                </span>
-                <StatusBadge value={item.current_stage} />
-                <button aria-label={`Advance ${caseReference(item)}`} disabled={advancing === item.id || item.current_stage === "possession"} onClick={() => advance(item)}>
-                  {advancing === item.id ? <Clock3 size={17} /> : <ArrowRight size={17} />}
-                </button>
-              </div>
-            ))}
-          </div>
-          {actionStatus && <p className="successNote" role="status"><CheckCircle2 /> {actionStatus}</p>}
+          </label>
+          <Link href={target("cases", selected?.id)} className="textLink">
+            {t("caseJourney")} →
+          </Link>
         </div>
-        <div className="panel verifyPanel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">AI-assisted verification</p>
-              <h2>Document check</h2>
-            </div>
-            <span className="count">2 ready</span>
-          </div>
-          <div className="documentPreview">
-            <FileText />
-            <span>7/12 extract.pdf</span>
-          </div>
-          <div className="extracted">
-            <p>
-              <span>Owner name</span>
-              <strong>Asha Dattatray Patil</strong>
-            </p>
-            <p>
-              <span>Survey number</span>
-              <strong>KH-101</strong>
-            </p>
-            <p>
-              <span>Area</span>
-              <strong>0.72 hectare</strong>
-            </p>
-            <p>
-              <span>Confidence</span>
-              <strong className="confidence">96.4%</strong>
-            </p>
-          </div>
-          <div className="buttonRow">
-            <button className="button danger">Return</button>
-            <button className="button primary">
-              <CheckCircle2 size={17} /> Confirm fields
-            </button>
-          </div>
-        </div>
-      </section>
-      <section className="mobileAction">
-        <ClipboardCheck />
-        <span>
-          <strong>3 actions due today</strong>
-          <small>Optimized field-officer mobile queue</small>
-        </span>
-        <ArrowRight />
-      </section>
-    </>
-  );
-}
-
-function AuthorityView({ cases }: { cases: CaseDetail[] }) {
-  const [selectedCase, setSelectedCase] = useState(cases[0]?.id);
-  const demoMode = useAuthStore((state) => state.demoMode);
-  const [record, setRecord] = useState<{
-    owner: string;
-    survey: string;
-    area: string;
-    notice: string;
-  } | null>(null);
-  const [checking, setChecking] = useState(false);
-  const selectedLiveCase =
-    cases.find((item) => item.id === selectedCase) ?? cases[0];
-  const delayQuery = useQuery({
-    queryKey: ["prediction", "delay", selectedLiveCase?.id],
-    queryFn: () => api.delayPrediction(selectedLiveCase!.id),
-    enabled: !demoMode && !!selectedLiveCase,
-  });
-  const checkLandRecord = async () => {
-    setChecking(true);
-    try {
-      if (demoMode) {
-        await new Promise((resolve) => setTimeout(resolve, 450));
-        setRecord({
-          owner: "Asha Dattatray Patil",
-          survey: "KH-101",
-          area: "0.72 hectare",
-          notice: "Prototype fixture — not live government data",
-        });
-      } else {
-        const response = await api.landRecord("KH-101");
-        setRecord({
-          owner: response.owner.name,
-          survey: response.survey_number,
-          area: `${response.area.value} ${response.area.unit}`,
-          notice: response.source.notice,
-        });
-      }
-    } finally {
-      setChecking(false);
-    }
-  };
-  const counts = stages.map((stage) => ({
-    stage,
-    count: cases.filter((item) => item.current_stage === stage).length,
-  }));
+        {view === "documents" ? (
+          <DocumentsView item={selected} key={selected.id} />
+        ) : view === "grievances" ? (
+          <GrievancesView item={selected} key={selected.id} />
+        ) : (
+          <OperationsForms item={selected} key={selected.id} />
+        )}
+      </>
+    );
   return (
-    <>
-      <section className="metricGrid">
-        <Metric
-          label="Total project area"
-          value="24.7 ha"
-          detail="20 mapped parcels"
-          icon={Landmark}
-        />
-        <Metric
-          label="Cases progressing"
-          value="17/20"
-          detail="85% active flow"
-          icon={Route}
-        />
-        <Metric
-          label="Compensation paid"
-          value="₹3.82Cr"
-          detail="67% of assessed"
-          icon={WalletCards}
-        />
-        <Metric
-          label="Attention required"
-          value="3"
-          detail="Across 2 stages"
-          icon={AlertTriangle}
-        />
-      </section>
-      <section className="contentGrid mapGrid">
-        <div className="panel mapPanel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Kharadi Bypass · GIS command view</p>
-              <h2>Parcel acquisition map</h2>
-            </div>
-            <span className="count">OSM · 20 parcels</span>
-          </div>
-          <ParcelMap parcels={demoParcels} onSelect={setSelectedCase} />
-        </div>
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Stage distribution</p>
-              <h2>Bottleneck view</h2>
-            </div>
-          </div>
-          <div className="bottlenecks">
-            {counts.map(({ stage, count }) => (
-              <button key={stage}>
-                <span>
-                  <StatusBadge value={stage} />
-                  <small>{count} cases</small>
-                </span>
-                <i style={{ width: `${Math.max(count * 22, 12)}%` }} />
-              </button>
-            ))}
-          </div>
-          <div className="selectedParcel">
-            <Search />
-            <span>
-              <small>Selected from map</small>
-              <strong>
-                {cases.find((item) => item.id === selectedCase)
-                  ? caseReference(cases.find((item) => item.id === selectedCase)!)
-                  : "Click a parcel"}
-              </strong>
-            </span>
-          </div>
-          {delayQuery.data && (
-            <div className="interopResult modelResult" role="status">
-              <strong>{delayQuery.data.risk_band} delay risk · {delayQuery.data.predicted_days_remaining} days remaining</strong>
-              <span>Case drivers: {delayQuery.data.top_features.map((item) => item.feature.replaceAll("_", " ")).join(", ")}</span>
-              <small>Synthetic-trained {delayQuery.data.model_version} · holdout MAE {delayQuery.data.holdout_mae_days} days · not validated on real records</small>
-            </div>
-          )}
-          {record && (
-            <div className="interopResult" role="status">
-              <strong>{record.owner}</strong>
-              <span>
-                {record.survey} · {record.area}
-              </span>
-              <small>{record.notice}</small>
-            </div>
-          )}
-          <button
-            className="interopButton"
-            onClick={checkLandRecord}
-            disabled={checking}
-          >
-            <Landmark />{" "}
-            {checking
-              ? "Contacting API Setu fixture…"
-              : "Check Maharashtra land record"}{" "}
-            <ArrowRight />
-          </button>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function DistrictView({ cases }: { cases: CaseDetail[] }) {
-  return (
-    <>
-      <section className="metricGrid">
-        <Metric
-          label="District projects"
-          value="8"
-          detail="5 on schedule"
-          icon={Landmark}
-        />
-        <Metric
-          label="Affected families"
-          value="1,248"
-          detail="73% verified"
-          icon={Users}
-        />
-        <Metric
-          label="Area acquired"
-          value="186 ha"
-          detail="of 252 ha notified"
-          icon={Route}
-        />
-        <Metric
-          label="Audit exceptions"
-          value="2"
-          detail="Both under review"
-          icon={AlertTriangle}
-        />
-      </section>
-      <section className="contentGrid adminGrid">
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Maharashtra → Pune</p>
-              <h2>Project drill-down</h2>
-            </div>
-            <button className="button secondary">
-              <Download size={16} /> Export
-            </button>
-          </div>
-          <div className="districtRows">
-            {[
-              "Kharadi Bypass",
-              "Pune Ring Road",
-              "Metro Line 3",
-              "Indapur Irrigation",
-            ].map((name, index) => (
-              <button key={name}>
-                <span>
-                  <strong>{name}</strong>
-                  <small>
-                    {20 + index * 13} parcels · {12 + index * 4} families
-                  </small>
-                </span>
-                <span>
-                  <b>{84 - index * 7}%</b>
-                  <small>progress</small>
-                </span>
-                <ArrowRight />
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Tamper-evident activity</p>
-              <h2>Recent audit trail</h2>
-            </div>
-          </div>
-          <div className="auditList">
-            {cases.slice(0, 5).map((item, index) => (
-              <div key={item.id}>
-                <span className="auditIcon">
-                  <FileCheck2 />
-                </span>
-                <span>
-                  <strong>
-                    {index % 2 ? "Document verified" : "Case stage advanced"}
-                  </strong>
-                  <small>
-                    {caseReference(item)} · Officer {index + 1}
-                  </small>
-                </span>
-                <time>{index + 2}h ago</time>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-function SeniorView({ demoMode }: { demoMode: boolean }) {
-  const aggregateQuery = useQuery({
-    queryKey: ["predictions", "aggregate"],
-    queryFn: api.aggregatePredictions,
-    enabled: !demoMode,
-  });
-  const aggregate = aggregateQuery.data;
-  const onTrack = aggregate ? Math.max(0, Math.round(100 - aggregate.high_risk_pct)) : 74;
-  const riskRows: Array<[string, number]> = demoMode
-    ? [
-        ["Maharashtra highways", 38],
-        ["Urban transit", 27],
-        ["Irrigation", 19],
-        ["Industrial corridors", 12],
-      ]
-    : aggregate
-      ? [[`All ${aggregate.case_count} visible cases`, aggregate.high_risk_pct]]
-      : [];
-  const fields = [
-    ["Area notified", "252 ha", "up 8.2%"],
-    ["Area acquired", "186 ha", "73.8% complete"],
-    ["Compensation assessed", "₹46.2Cr", "1,248 families"],
-    ["Compensation paid", "₹31.8Cr", "68.8% disbursed"],
-    ["R&R completed", "72%", "901 families"],
-    ["Possession secured", "138 ha", "54.7% of area"],
-  ];
-  return (
-    <>
-      <section className="seniorHero">
-        <div>
-          <p className="sectionLabel">National programme pulse</p>
-          <h2>
-            Land acquisition is <em>{onTrack}% on track</em> across monitored projects.
-          </h2>
-        </div>
-        <div className="riskScore">
-          <span>{aggregate ? `${Math.round(aggregate.high_risk_pct)}%` : "26"}</span>
-          <small>
-            {aggregate ? "cases at" : "demo cases at"}
-            <br />
-            high delay risk
-          </small>
-        </div>
-      </section>
-      <section className="nationalGrid">
-        {fields.map(([label, value, detail]) => (
-          <article key={label}>
-            <p>{label}</p>
-            <strong>{value}</strong>
-            <small>{detail}</small>
-          </article>
-        ))}
-      </section>
-      <p className="modelDisclosure">National MIS values are a synthetic demonstration scenario. {demoMode ? "Predictive values are demo fixtures." : "The predictive card below is calculated live from the synthetic-trained model endpoint."}</p>
-      <section className="contentGrid seniorGrid">
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Predictive intelligence</p>
-              <h2>Delay-risk concentration</h2>
-            </div>
-            <StatusBadge value="model_active" />
-          </div>
-          <div className="riskBars">
-            {riskRows.map(([label, value]) => (
-              <div key={label}>
-                <span>
-                  <strong>{label}</strong>
-                  <b>{value}% high risk</b>
-                </span>
-                <i>
-                  <em style={{ width: `${value}%` }} />
-                </i>
-              </div>
-            ))}
-            {!demoMode && aggregate && <small className="modelNote">Average predicted compensation-disbursal timeline: {aggregate.avg_disbursal_days} days. Synthetic training data; real-world accuracy is not claimed.</small>}
-          </div>
-        </div>
-        <div className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="sectionLabel">Timeline adherence</p>
-              <h2>Leadership actions</h2>
-            </div>
-          </div>
-          <div className="leadershipActions">
-            <button>
-              <AlertTriangle />
-              <span>
-                <strong>7 awards beyond SLA</strong>
-                <small>Escalate to district collectors</small>
-              </span>
-              <ArrowRight />
-            </button>
-            <button>
-              <Banknote />
-              <span>
-                <strong>₹4.6Cr ready to disburse</strong>
-                <small>Review treasury batch</small>
-              </span>
-              <ArrowRight />
-            </button>
-            <button>
-              <Users />
-              <span>
-                <strong>42 families need R&R action</strong>
-                <small>Open rehabilitation queue</small>
-              </span>
-              <ArrowRight />
-            </button>
-          </div>
-        </div>
-      </section>
-    </>
-  );
-}
-
-export default function RolePortal() {
-  const router = useRouter();
-  const params = useParams<{ role: string }>();
-  const role = params.role as Role;
-  const user = useAuthStore((state) => state.user);
-  const demoMode = useAuthStore((state) => state.demoMode);
-  const [hydrated, setHydrated] = useState(false);
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-  useEffect(() => {
-    if (hydrated && (!user || !validRoles.includes(role) || user.role !== role))
-      router.replace(user ? "/forbidden" : "/login");
-  }, [hydrated, role, router, user]);
-  const query = useQuery({
-    queryKey: ["cases"],
-    queryFn: api.cases,
-    enabled: hydrated && !!user && !demoMode,
-    retry: 1,
-    refetchInterval: 30_000,
-  });
-  const cases = useMemo(
-    () =>
-      query.data
-        ? query.data.map((item) => ({ ...item, stage_history: [] }))
-        : demoMode
-          ? demoCases
-          : [],
-    [demoMode, query.data],
-  );
-  if (!hydrated || !user || user.role !== role)
-    return <main className="loadingPage">Securing your role workspace…</main>;
-  if (!demoMode && query.isPending)
-    return <main className="loadingPage">Loading your authorized cases…</main>;
-  const copy = {
-    landowner: [
-      `Namaste, ${user.name.split(" ")[0]}`,
-      "Your land, documents and compensation—clearly tracked.",
-    ],
-    officer: [
-      "Today’s field desk",
-      "Verify faster, resolve clearly, keep every case moving.",
-    ],
-    authority: [
-      "Kharadi Bypass",
-      "Project control across land, cases and bottlenecks.",
-    ],
-    district_admin: [
-      "Pune district command",
-      "Drill down, resolve exceptions and uphold accountability.",
-    ],
-    senior_admin: [
-      "Executive oversight",
-      "A national view of progress, public money and delivery risk.",
-    ],
-  }[role];
-  return (
-    <PortalShell role={role} title={copy[0]} subtitle={copy[1]}>
-      {role === "landowner" && <CitizenView cases={cases} demoMode={demoMode} />}
-      {role === "officer" && <OfficerView cases={cases} demoMode={demoMode} />}
-      {role === "authority" && <AuthorityView cases={cases} />}
-      {role === "district_admin" && <DistrictView cases={cases} />}
-      {role === "senior_admin" && <SeniorView demoMode={demoMode} />}
+    <PortalShell
+      role={role}
+      view={view}
+      unread={inbox?.items.filter((item) => !item.read).length ?? 0}
+    >
+      {body}
     </PortalShell>
+  );
+}
+export default function PortalPage() {
+  return (
+    <Suspense fallback={<Loading />}>
+      <Workspace />
+    </Suspense>
   );
 }

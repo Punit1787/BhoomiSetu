@@ -15,8 +15,12 @@ records or automate legal decisions.
 - Image OCR with officer confirmation and optional OpenAI vision extraction
 - Human-confirmed grievance classification and department routing
 - Delay-risk and compensation-disbursal timeline models with visible limitations
-- API Setu/NGDRS-shaped adapter fixtures, Supabase realtime wiring and hash-chained audit logs
-- Responsive judge-ready UI, deterministic synthetic demo and automated CI
+- Recorded compensation/R&R, family counts, eight KPI groups and comparative dashboards
+- Filtered MIS reports with selectable columns, CSV export and browser print/PDF
+- Rule-based inbox alerts, recorded deadline monitoring and per-user read receipts
+- English, Hindi, Marathi, Gujarati and Kannada labels; browser read-aloud for citizens
+- Standard master data, document validation and hash-chained audit logs
+- API Setu/NGDRS-shaped fixtures, responsive role workspaces and automated CI
 
 ## Responsible-data statement
 
@@ -43,10 +47,10 @@ Next.js 16 / TypeScript
         │ REST + JWT
 FastAPI / Python 3.13 ── OCR + scikit-learn models
         │
-PostgreSQL 17 + PostGIS ── optional Supabase realtime
+PostgreSQL + PostGIS on Render ── 30-second UI refresh
 ```
 
-The backend is containerized for Render; the frontend is ready for Vercel. Detailed
+The backend is hosted on Render; the frontend is hosted on Vercel. Detailed
 boundaries are in [`docs/architecture/system.md`](docs/architecture/system.md).
 
 ## Run locally
@@ -84,15 +88,23 @@ clears demo interactions and restores the canonical showcase.
 | `docs/judge-qa.md` | Concise responsible-technology answers |
 | `docs/integration-matrix.md` | Clear real/fixture/synthetic disclosure |
 | `docs/team-setup.md` | Collaborator and secret-management workflow |
-| `docs/deployment.md` | Render, Vercel and Supabase deployment |
+| `docs/deployment.md` | Render/Vercel deployment and keepalive limits |
 | `docs/pitch` | Editable SIH presentation |
 
 ## Deployment
 
-Import this private repository into Render using `render.yaml`, deploy the frontend
-from `apps/frontend` on Vercel, and store all secrets in provider environment
-settings. Never commit `.env` files. Full instructions are in
+[Open the frontend](https://bhoomi-setu-steel.vercel.app) ·
+[API health](https://bhoomsetu-api.onrender.com/health).
+
+Render uses `render.yaml`; Vercel builds `apps/frontend`. Store all secrets in
+provider environment settings. Never commit `.env` files. Full instructions are in
 [`docs/deployment.md`](docs/deployment.md).
+
+## Design reference
+
+The interface adapts the user-provided [landbridge-pro](https://github.com/abdullahkabadi7-lab/landbridge-pro)
+design (revision `88504a9`), including its landscape asset, to the existing Next.js
+application and real BhoomiSetu APIs. Reference mock authentication/data is not used.
 
 ## License and data
 

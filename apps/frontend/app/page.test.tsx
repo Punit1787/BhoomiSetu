@@ -10,10 +10,10 @@ describe("HomePage", () => {
 
     expect(
       screen.getByRole("heading", {
-        name: "Land acquisition, made legible.",
+        name: "Connecting Land, Records & People.",
       }),
     ).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open BhoomiSetu" })).toHaveAttribute("href", "/login");
-    expect(screen.getByText("Core platform verified")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Get started" })).toHaveAttribute("href", "/login");
+    expect(screen.getByText(/Demonstration cases and ML training histories are synthetic/)).toBeInTheDocument();
   });
 });
