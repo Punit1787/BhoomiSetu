@@ -2,7 +2,7 @@
 
 Current hosts: [Vercel frontend](https://bhoomi-setu-steel.vercel.app),
 [Render API](https://bhoomsetu-api.onrender.com) and Render PostgreSQL/PostGIS.
-The repository remains private. Secrets belong in provider settings, never Git.
+The repository is public. Secrets belong in provider settings, never Git.
 
 ## Render
 
@@ -36,9 +36,9 @@ building. The UI refreshes database-backed queries every 30 seconds while open.
 The date guard prevents pings in later years or if GitHub delivers a job late.
 There is no continuous daily schedule, paid plan or spending-limit change.
 
-This private repository consumes Actions minutes: the judging-day schedule has
-144 jobs, plus any manual runs and ordinary CI. GitHub schedules can be delayed
-or dropped, so this cannot guarantee uptime. Open the portal before presenting.
+The judging-day schedule has 144 jobs, plus any manual runs and ordinary CI.
+GitHub schedules can be delayed or dropped, so this cannot guarantee uptime.
+Open the portal before presenting.
 
 [Render Free](https://render.com/docs/free) sleeps after 15 idle minutes, shares
 750 running hours per workspace/month, and its free Postgres database expires

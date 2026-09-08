@@ -2,8 +2,8 @@
 
 ## Share the project
 
-Use a private GitHub repository and add teammates as collaborators. They clone the
-repository normally; do not send `node_modules`, `.venv`, `.next`, generated model
+The GitHub repository is public; add teammates as collaborators if they need push
+access. Clone the repository normally; do not send `node_modules`, `.venv`, `.next`, generated model
 binaries or local `.env` files.
 
 ```bash

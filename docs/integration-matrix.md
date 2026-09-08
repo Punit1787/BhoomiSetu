@@ -18,7 +18,7 @@
 | Predictive models | Two Random Forest pipelines trained on 1,800 synthetic histories | Synthetic holdout metrics only; not real-world accuracy or legal decisions |
 | API Setu / NGDRS | Explicitly labelled adapter fixtures | No live government access or approved credentials |
 | Updates | TanStack Query polling against Render API | No external realtime subscription or credentials required |
-| Keepalive | Manual check plus ten-minute schedule on 12 September 2026 (IST) | Private Actions quota applies; no uptime or database-expiry guarantee |
+| Keepalive | Manual check plus ten-minute schedule on 12 September 2026 (IST) | GitHub scheduling limits apply; no uptime or database-expiry guarantee |
 
 Live government adapters require institutional onboarding and publisher approval.
 Real model validation requires approved, de-identified case histories and independent
