@@ -12,7 +12,7 @@
 | Statutory monitoring | Staff enter a stage deadline with its authority/reference | Operational targets are labelled separately; no automatic legal deadline calculation |
 | Master data | Canonical project/document/grievance types, survey-format and required-field checks | Format validation does not authenticate a land record |
 | Languages | English, Hindi, Marathi, Gujarati and Kannada labels, stages and categories; saved user locale | Extracted text, rationale and free text are not translated |
-| Read aloud | Browser speech synthesis on citizen case status | Requires a matching installed voice; no paid or generative voice API |
+| Read aloud | Browser speech synthesis with eSpeak NG audio fallback | Server-generated WAV when browser voices fail; no paid or generative voice API |
 | OCR | Tesseract with English/Hindi/Marathi; officer correction/confirmation | PNG/JPEG/TIFF, 10 MB max; extracted metadata retained, original scans not stored |
 | Optional vision/classification | OpenAI adapters when an approved API key is configured | Otherwise OCR/rule fallback; model suggestions require human review |
 | Predictive models | Two Random Forest pipelines trained on 1,800 synthetic histories | Synthetic holdout metrics only; not real-world accuracy or legal decisions |

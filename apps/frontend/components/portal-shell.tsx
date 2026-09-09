@@ -112,7 +112,7 @@ export function PortalShell({
       <div className="sideFooter">
         <div>
           <strong>{user?.name}</strong>
-          <small>{t(demoMode ? "demo" : "liveData")}</small>
+          <small>{t(role)}</small>
         </div>
         <button
           className="iconButton"
@@ -168,13 +168,18 @@ export function PortalShell({
               <Bell size={19} />
               {unread > 0 && <span className="notificationDot" />}
             </Link>
-            <span className="avatar" aria-label={user?.name}>
+            <Link
+              href={link("settings")}
+              className="avatar"
+              aria-label={`${t("account")}: ${user?.name ?? ""}`}
+              title={t("account")}
+            >
               {user?.name
                 .split(" ")
                 .map((part) => part[0])
                 .slice(0, 2)
                 .join("")}
-            </span>
+            </Link>
           </div>
         </header>
         <header className="workspaceHeading">
@@ -187,10 +192,6 @@ export function PortalShell({
                 : "Track progress, review exceptions and record decisions."}
             </p>
           </div>
-          <span className="dataBadge">
-            <i />
-            {t(demoMode ? "demo" : "liveData")}
-          </span>
         </header>
         <main id="workspace-content" className="workspaceContent">
           {demoMode && (

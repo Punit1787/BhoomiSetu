@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
-from PIL import UnidentifiedImageError
+from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -70,8 +70,12 @@ async def upload_and_extract_document(
     ) + 1
     try:
         fields = await extract_document(content, file.content_type or "image/png")
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
-        raise HTTPException(422, "Cannot read this image. Upload a valid document scan.") from exc
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
+        raise HTTPException(
+            422, "Cannot read this image. Use a valid PNG, JPEG or TIFF scan under 20 megapixels."
+        ) from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, "Document reading timed out. Try a smaller, clear image.") from exc
     document = Document(
         case_id=case_id,
         version=version,
@@ -110,8 +114,10 @@ async def reextract_document(
         raise HTTPException(413, "Document exceeds the 10 MB limit")
     try:
         fields = await extract_document(content, file.content_type or "image/png")
-    except (UnidentifiedImageError, OSError, ValueError) as exc:
+    except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
         raise HTTPException(422, "Cannot read this image") from exc
+    except RuntimeError as exc:
+        raise HTTPException(503, "Document reading timed out. Try a smaller, clear image.") from exc
     document.extracted_fields = fields.model_dump()
     document.status = DocumentStatus.EXTRACTED
     await write_audit_log(

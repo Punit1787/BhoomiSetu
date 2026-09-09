@@ -41,3 +41,6 @@ git push -u origin feature/short-description
 
 Open a pull request into `main`; do not have everyone commit directly to `main`.
 The repository runs backend and frontend checks automatically on pull requests.
+
+When running the API outside Docker, install Tesseract and eSpeak NG locally.
+Docker includes both OCR and the multilingual audio fallback.

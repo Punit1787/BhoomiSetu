@@ -236,7 +236,11 @@ function Workspace() {
     () => false,
   );
   const authorized =
-    hydrated && !!user && user.role === role && validRoles.includes(role);
+    hydrated &&
+    !!user &&
+    !demoMode &&
+    user.role === role &&
+    validRoles.includes(role);
   const caseQuery = useWorkspaceQuery(["cases"], api.cases, authorized);
   const summaryQuery = useWorkspaceQuery(
     ["dashboard"],
@@ -256,10 +260,10 @@ function Workspace() {
   const [search, setSearch] = useState("");
   const stageFilter = searchParams.get("stage") ?? "all";
   useEffect(() => {
-    if (hydrated && !user) router.replace("/login");
+    if (hydrated && (!user || demoMode)) router.replace("/login");
     else if (hydrated && (!validRoles.includes(role) || user?.role !== role))
       router.replace("/forbidden");
-  }, [hydrated, user, role, router]);
+  }, [hydrated, user, demoMode, role, router]);
   if (!authorized) return <Loading />;
   const cases = demoMode
     ? role === "landowner"
@@ -348,8 +352,8 @@ function Workspace() {
         <LanguageSelect />
         <p className="helper">
           Interface labels and stage names are translated. Submitted records and
-          extracted text stay in their original language. Read-aloud depends on
-          installed browser voices.
+          extracted text stay in their original language. Read-aloud uses
+          browser voices with an audio fallback.
         </p>
       </section>
     );

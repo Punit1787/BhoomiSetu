@@ -8,7 +8,8 @@ The repository is public. Secrets belong in provider settings, never Git.
 
 The root `render.yaml` defines the Docker API and Render database. Startup runs
 Alembic and seeds the 20-case synthetic showcase **only if absent**; redeploys do
-not reset saved interactions. The operations migration adds fields/tables without
+not reset saved interactions. Startup also adds any missing extra citizen demo
+accounts and links them to unclaimed showcase landowner records. The operations migration adds fields/tables without
 inventing historic payment amounts, document dates or statutory deadlines.
 
 Required environment settings:

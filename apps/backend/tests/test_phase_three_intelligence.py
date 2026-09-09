@@ -1,10 +1,12 @@
 import io
 import uuid
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 
+from app.api import intelligence
 from app.services.predictive import predict
 from tests.test_phase_one_api import authorization, register
 
@@ -36,7 +38,7 @@ def make_sample_land_record() -> bytes:
     return stream.getvalue()
 
 
-def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
+def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     suffix = uuid.uuid4().hex
     authority = register(client, "project_authority", suffix)
     officer = register(client, "officer", suffix)
@@ -100,6 +102,18 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
     assert fields["khasra_survey_number"] == "KH-101"
     assert fields["area_hectares"] == 0.72
 
+    with monkeypatch.context() as patch:
+        patch.setattr(
+            intelligence, "extract_document", AsyncMock(side_effect=RuntimeError("OCR timeout"))
+        )
+        timed_out = client.post(
+            f"/cases/{case_id}/documents",
+            headers=authorization(landowner),
+            files={"file": ("sample.png", b"scan", "image/png")},
+        )
+        assert timed_out.status_code == 503
+        assert "smaller, clear image" in timed_out.json()["detail"]
+
     confirmation = client.post(
         f"/documents/{extraction.json()['document_id']}/confirm",
         headers=authorization(officer),
@@ -135,17 +149,20 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
         model_name = (
             "delay_model.joblib" if endpoint == "delay" else "compensation_timeline_model.joblib"
         )
-        expected = predict(model_name, {
-            "project_type": "Highway",
-            "state": "Maharashtra",
-            "district": "Pune",
-            "current_stage": "notification",
-            "parcel_count": 1,
-            "objection_count": 1,
-            "document_turnaround_days": 12,
-            "officer_open_load": 1,
-            "days_in_compensation": 0,
-        })
+        expected = predict(
+            model_name,
+            {
+                "project_type": "Highway",
+                "state": "Maharashtra",
+                "district": "Pune",
+                "current_stage": "notification",
+                "parcel_count": 1,
+                "objection_count": 1,
+                "document_turnaround_days": 12,
+                "officer_open_load": 1,
+                "days_in_compensation": 0,
+            },
+        )
         assert prediction.json() == expected.model_dump()
         assert all(
             item["feature"]
@@ -169,14 +186,15 @@ def test_phase_three_ai_ml_and_gis(client: TestClient) -> None:
     )
     assert aggregate.status_code == 200, aggregate.text
     assert aggregate.json()["case_count"] >= 1
-    assert client.get(
-        "/predictions/aggregate", headers=authorization(landowner)
-    ).status_code == 403
+    assert client.get("/predictions/aggregate", headers=authorization(landowner)).status_code == 403
     empty = client.get(
         f"/predictions/aggregate?state=missing-{suffix}", headers=authorization(district)
     )
     assert empty.json() == {
-        "case_count": 0, "high_risk_pct": 0, "avg_disbursal_days": 0, "trend": "stable"
+        "case_count": 0,
+        "high_risk_pct": 0,
+        "avg_disbursal_days": 0,
+        "trend": "stable",
     }
 
     intersection = client.post(

@@ -20,6 +20,30 @@ export const demoAccounts: Record<Role, { email: string; password: string; name:
   senior_admin: { email: "senior@bhoomsetu.local", password: "DemoPass123!", name: "Senior Administrator" },
 };
 
+export const citizenDemoAccounts = [
+  demoAccounts.landowner,
+  {
+    email: "citizen2@bhoomsetu.local",
+    password: "DemoPass123!",
+    name: "Rohan Deshmukh",
+  },
+  {
+    email: "citizen3@bhoomsetu.local",
+    password: "DemoPass123!",
+    name: "Meera Jadhav",
+  },
+  {
+    email: "citizen4@bhoomsetu.local",
+    password: "DemoPass123!",
+    name: "Suresh Pawar",
+  },
+  {
+    email: "citizen5@bhoomsetu.local",
+    password: "DemoPass123!",
+    name: "Kavita Shinde",
+  },
+];
+
 const now = new Date("2026-08-31T09:30:00+05:30").toISOString();
 
 export const demoCases: CaseDetail[] = Array.from({ length: 20 }, (_, index) => {

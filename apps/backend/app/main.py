@@ -7,6 +7,7 @@ from app.api.intelligence import router as intelligence_router
 from app.api.interoperability import router as interoperability_router
 from app.api.operations import router as operations_router
 from app.api.projects import router as projects_router
+from app.api.speech import router as speech_router
 from app.core.config import settings
 
 app = FastAPI(
@@ -30,3 +31,5 @@ app.include_router(intelligence_router)
 app.include_router(interoperability_router)
 
 app.include_router(operations_router)
+
+app.include_router(speech_router)

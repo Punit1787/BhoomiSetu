@@ -1,11 +1,11 @@
 # Judge walkthrough
 
 Use the API sign-in with the prefilled synthetic accounts (`DemoPass123!`).
-“Explore with demo data” is a read-only browser preview and cannot save changes.
+Choose among five citizen accounts to show different case stages.
 Allow the free backend to wake before presenting.
 
 1. **Citizen:** open Cases and its journey. Change Language to Marathi/Hindi;
-   try Read aloud if the browser has that voice. Explain the next stage and
+   try Read aloud; use the audio player if the browser voice is unavailable. Explain the next stage and
    distinguish recorded deadlines from an unrecorded date.
 2. **Documents:** select a case and upload a clear PNG/JPEG/TIFF land-record scan.
    State that OCR fields are saved but original scans are not retained. Sign in

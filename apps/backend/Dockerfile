@@ -7,7 +7,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-mar \
+    && apt-get install -y --no-install-recommends espeak-ng tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-mar \
     && rm -rf /var/lib/apt/lists/*
 
 COPY apps/backend/requirements.txt ./requirements.txt

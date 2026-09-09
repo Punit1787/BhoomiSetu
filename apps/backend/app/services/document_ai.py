@@ -5,7 +5,7 @@ import re
 
 import httpx
 import pytesseract
-from PIL import Image
+from PIL import Image, ImageOps
 from starlette.concurrency import run_in_threadpool
 
 from app.core.config import settings
@@ -58,7 +58,7 @@ async def _vision_extract(content: bytes, media_type: str) -> DocumentExtractedF
             }
         ],
     }
-    async with httpx.AsyncClient(timeout=45) as client:
+    async with httpx.AsyncClient(timeout=25) as client:
         response = await client.post(
             "https://api.openai.com/v1/chat/completions",
             json=payload,
@@ -70,14 +70,28 @@ async def _vision_extract(content: bytes, media_type: str) -> DocumentExtractedF
     return DocumentExtractedFields.model_validate(parsed)
 
 
+def _prepare_image(content: bytes) -> Image.Image:
+    with Image.open(io.BytesIO(content)) as image:
+        if image.format not in {"PNG", "JPEG", "TIFF"}:
+            raise ValueError("Unsupported document image")
+        if image.width * image.height > 20_000_000:
+            raise ValueError("Document image exceeds 20 megapixels")
+        oriented = ImageOps.exif_transpose(image)
+        oriented.thumbnail((2400, 2400))
+        return oriented.convert("RGB")
+
+
 async def extract_document(content: bytes, media_type: str) -> DocumentExtractedFields:
-    if settings.openai_api_key:
-        try:
-            return await _vision_extract(content, media_type)
-        except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError):
-            pass
-    image = Image.open(io.BytesIO(content)).convert("RGB")
-    text = await run_in_threadpool(
-        pytesseract.image_to_string, image, lang="eng+mar+hin", timeout=45
-    )
-    return _parse_ocr_text(text)
+    image = await run_in_threadpool(_prepare_image, content)
+    try:
+        if settings.openai_api_key:
+            try:
+                return await _vision_extract(content, media_type)
+            except (httpx.HTTPError, KeyError, ValueError, json.JSONDecodeError):
+                pass
+        text = await run_in_threadpool(
+            pytesseract.image_to_string, image, lang="eng+mar+hin", timeout=30
+        )
+        return _parse_ocr_text(text)
+    finally:
+        image.close()

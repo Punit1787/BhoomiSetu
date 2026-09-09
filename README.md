@@ -18,7 +18,7 @@ compensation records, grievances and project performance easier to track.
 - **Compensation and rehabilitation:** Recorded payment status, R&R progress, affected/displaced family counts and due dates.
 - **Dashboards and reporting:** Eight KPI groups, project/state comparisons, timeline alerts, customizable CSV reports and print/save-to-PDF.
 - **Document and predictive assistance:** Tesseract OCR with officer review, grievance classification, delay-risk estimates and compensation timeline estimates.
-- **Accessibility:** Responsive mobile layouts; English, Hindi, Marathi, Gujarati and Kannada labels; citizen read-aloud through browser speech synthesis.
+- **Accessibility:** Responsive mobile layouts; English, Hindi, Marathi, Gujarati and Kannada labels; citizen read-aloud with a server audio fallback.
 
 ## Technology stack
 
@@ -29,7 +29,7 @@ compensation records, grievances and project performance easier to track.
 | Mapping | Leaflet, React Leaflet, OpenStreetMap |
 | Backend | Python 3.13, FastAPI, Pydantic, Uvicorn |
 | Database | PostgreSQL, PostGIS, SQLAlchemy, GeoAlchemy2, Alembic |
-| Machine learning and OCR | scikit-learn Random Forest, pandas, NumPy, Tesseract |
+| Machine learning and OCR | scikit-learn Random Forest, pandas, NumPy, Tesseract, eSpeak NG |
 | Authentication | JWT access/refresh tokens, Argon2 password hashing, role-based authorization |
 | Testing and CI | pytest, Vitest, React Testing Library, Ruff, ESLint, GitHub Actions |
 | Deployment | Docker Compose locally, Vercel frontend, Render API and database |
@@ -65,8 +65,7 @@ data, not ML training data; attribution belongs to
 
 Open the **[live demo](https://bhoomi-setu-steel.vercel.app)** and choose a role.
 Synthetic demo credentials are prefilled. The free API may take about a minute to
-wake after inactivity; open it before presenting. Read-aloud requires an installed
-voice matching the selected language.
+wake after inactivity; open it before presenting. Read-aloud includes audio playback when browser voices are unavailable.
 
 For local setup, see [Team setup](docs/team-setup.md).
 

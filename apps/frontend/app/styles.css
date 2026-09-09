@@ -1547,6 +1547,9 @@ tbody tr:last-child td {
   margin-top: 15px;
   flex-wrap: wrap;
 }
+.readAloud audio {
+  width: min(100%, 360px);
+}
 .readAloud > small {
   font-size: 0.65rem;
   max-width: 280px;

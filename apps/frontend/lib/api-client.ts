@@ -1,4 +1,5 @@
 import { useAuthStore } from "./auth-store";
+import { documentMediaType } from "./document-upload";
 import type {
   AuthTokens,
   CaseDetail,
@@ -129,7 +130,10 @@ export async function apiFetch<T>(
     );
   }
   if (response.status === 204) return undefined as T;
-  if (response.headers.get("content-type")?.includes("text/csv"))
+  if (
+    response.headers.get("content-type")?.includes("text/csv") ||
+    response.headers.get("content-type")?.startsWith("audio/")
+  )
     return response.blob() as Promise<T>;
   return response.json() as Promise<T>;
 }
@@ -150,7 +154,11 @@ export const api = {
     }),
   uploadDocument: (id: string, file: File, documentType = "land_record") => {
     const body = new FormData();
-    body.append("file", file);
+    body.append(
+      "file",
+      file.slice(0, file.size, documentMediaType(file) ?? file.type),
+      file.name,
+    );
     body.append("document_type", documentType);
     return apiFetch<DocumentExtraction>(`/cases/${id}/documents`, {
       method: "POST",

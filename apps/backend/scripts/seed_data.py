@@ -49,6 +49,58 @@ DEMO_ACCOUNTS = (
     DemoAccount("Senior Administrator", "senior@bhoomsetu.local", UserRole.SENIOR_ADMIN),
 )
 
+EXTRA_CITIZENS = (
+    DemoAccount("Rohan Deshmukh", "citizen2@bhoomsetu.local", UserRole.LANDOWNER),
+    DemoAccount("Meera Jadhav", "citizen3@bhoomsetu.local", UserRole.LANDOWNER),
+    DemoAccount("Suresh Pawar", "citizen4@bhoomsetu.local", UserRole.LANDOWNER),
+    DemoAccount("Kavita Shinde", "citizen5@bhoomsetu.local", UserRole.LANDOWNER),
+)
+
+
+async def ensure_extra_citizens(db, project: Project) -> None:
+    """Add demo logins without resetting cases or taking over linked landowners."""
+    for index, account in enumerate(EXTRA_CITIZENS, start=1002):
+        user = await db.scalar(select(User).where(User.email == account.email))
+        if user is None:
+            user = User(
+                name=account.name,
+                email=account.email,
+                role=account.role,
+                password_hash=hash_password(DEMO_PASSWORD),
+            )
+            db.add(user)
+            await db.flush()
+            await write_audit_log(db, user.id, f"seed.user:{user.id}:{user.role.value}")
+        if user.role != UserRole.LANDOWNER:
+            continue
+        owner = await db.scalar(
+            select(Landowner)
+            .join(Parcel)
+            .where(
+                Parcel.project_id == project.id,
+                Parcel.khasra_survey_no == f"PRR-{index}",
+                Landowner.user_id.is_(None),
+            )
+            .order_by(Landowner.id)
+            .limit(1)
+            .with_for_update()
+        )
+        already_linked = await db.scalar(
+            select(Landowner.id)
+            .join(Parcel)
+            .where(
+                Parcel.project_id == project.id,
+                Landowner.user_id == user.id,
+            )
+            .limit(1)
+        )
+        if owner is not None and already_linked is None:
+            owner.user_id = user.id
+            owner.name = user.name
+            owner.contact = "demo-only@example.invalid"
+            await write_audit_log(db, user.id, f"seed.landowner.link:{owner.id}")
+
+
 STAGE_PATH = [
     CaseStage.NOTIFICATION,
     CaseStage.VERIFICATION,
@@ -86,7 +138,9 @@ async def seed(*, reset_existing: bool = True) -> None:
         existing = await db.scalar(select(Project).where(Project.name == DEMO_PROJECT_NAME))
         if existing:
             if not reset_existing:
-                print("Demo project already exists; leaving persisted demo interactions unchanged.")
+                await ensure_extra_citizens(db, existing)
+                await db.commit()
+                print("Demo project preserved; additional citizen demo accounts ensured.")
                 return
             account_rows = list(
                 await db.scalars(
@@ -183,6 +237,8 @@ async def seed(*, reset_existing: bool = True) -> None:
             await write_audit_log(
                 db, accounts[UserRole.PROJECT_AUTHORITY].id, f"seed.reset:{existing.id}"
             )
+            await db.flush()
+            await ensure_extra_citizens(db, existing)
             await db.commit()
             print("Restored the existing demo project, accounts, cases, histories and parcels.")
             return
@@ -258,8 +314,10 @@ async def seed(*, reset_existing: bool = True) -> None:
                 )
             await write_audit_log(db, authority.id, f"seed.case:{acquisition_case.id}")
 
+        await db.flush()
+        await ensure_extra_citizens(db, project)
         await db.commit()
-        print("Created 5 demo accounts, 1 project, 20 parcels, landowners, and cases.")
+        print("Created 9 demo accounts, 1 project, 20 parcels, landowners, and cases.")
         print(f"All demo accounts use password: {DEMO_PASSWORD}")
 
 

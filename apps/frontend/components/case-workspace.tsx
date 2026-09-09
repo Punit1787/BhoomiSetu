@@ -1,5 +1,5 @@
 "use client";
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
@@ -8,6 +8,7 @@ import {
   LoaderCircle,
   UploadCloud,
 } from "lucide-react";
+import { documentMediaType } from "@/lib/document-upload";
 import { api, apiFetch } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { caseReference, stages } from "@/lib/demo-data";
@@ -384,17 +385,21 @@ export function DocumentsView({ item }: { item: CaseSummary }) {
   const t = useT();
   const client = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
+  const fileInput = useRef<HTMLInputElement>(null);
   const [type, setType] = useState("land_record");
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   async function upload(event: FormEvent) {
     event.preventDefault();
-    if (!file) return;
+    if (!file) {
+      setMessage("Choose a document image first.");
+      return;
+    }
     if (file.size > 10 * 1024 * 1024) {
       setMessage("The image must be 10 MB or smaller.");
       return;
     }
-    if (!["image/png", "image/jpeg", "image/tiff"].includes(file.type)) {
+    if (!documentMediaType(file)) {
       setMessage("Choose a PNG, JPEG or TIFF image.");
       return;
     }
@@ -406,6 +411,7 @@ export function DocumentsView({ item }: { item: CaseSummary }) {
         `${t(result.status)} · ${Math.round(result.fields.confidence * 100)}% extraction confidence`,
       );
       setFile(null);
+      if (fileInput.current) fileInput.current.value = "";
       await client.invalidateQueries({ queryKey: ["workspace"] });
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Upload failed");
@@ -460,15 +466,30 @@ export function DocumentsView({ item }: { item: CaseSummary }) {
               ))}
             </select>
           </label>
-          <label className="dropzone">
+          <label
+            className="dropzone"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              if (!busy) {
+                setFile(event.dataTransfer.files[0] ?? null);
+                setMessage("");
+                if (fileInput.current) fileInput.current.value = "";
+              }
+            }}
+          >
             <UploadCloud size={30} />
             <strong>{file?.name ?? t("chooseFile")}</strong>
             <small>PNG, JPEG, TIFF · 10 MB maximum</small>
             <input
+              ref={fileInput}
               type="file"
-              required
-              accept="image/png,image/jpeg,image/tiff"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              disabled={busy}
+              accept="image/png,image/jpeg,image/tiff,.png,.jpg,.jpeg,.jfif,.tif,.tiff"
+              onChange={(event) => {
+                setFile(event.target.files?.[0] ?? null);
+                setMessage("");
+              }}
             />
           </label>
           <button

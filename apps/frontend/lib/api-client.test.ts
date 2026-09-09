@@ -101,8 +101,22 @@ describe("portal API mutations", () => {
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init?.body).toBeInstanceOf(FormData);
-    expect((init?.body as FormData).get("file")).toBe(file);
+    expect((init?.body as FormData).get("file")).toMatchObject({
+      name: file.name, type: "image/png", size: file.size,
+    });
     expect(new Headers(init?.headers).has("Content-Type")).toBe(false);
+  });
+
+  it("supplies the image MIME type when the browser omits it", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockImplementation(() => ok({ document_id: "doc-2" }));
+    await api.uploadDocument("case-1", new File(["scan"], "record.JPG"));
+    const [, init] = fetchMock.mock.calls[0];
+    expect((init?.body as FormData).get("file")).toMatchObject({
+      name: "record.JPG",
+      type: "image/jpeg",
+    });
   });
 
   it("submits grievance text to the selected case", async () => {

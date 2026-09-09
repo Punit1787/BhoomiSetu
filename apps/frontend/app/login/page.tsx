@@ -18,9 +18,9 @@ import { Brand } from "@/components/brand";
 import { LanguageSelect } from "@/components/language-select";
 import { api } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
-import { demoAccounts } from "@/lib/demo-data";
+import { demoAccounts, citizenDemoAccounts } from "@/lib/demo-data";
 import { useLocale, useT, type Locale } from "@/lib/i18n";
-import type { AuthTokens, Role } from "@/lib/types";
+import type { Role } from "@/lib/types";
 
 const icons = {
   landowner: Home,
@@ -47,31 +47,19 @@ export default function LoginPage() {
     setPassword(demoAccounts[value].password);
     setMessage("");
   }
-  async function signIn(demo = false) {
+  async function signIn() {
     setLoading(true);
     setMessage("");
     try {
-      const tokens: AuthTokens = demo
-        ? {
-            access_token: `demo-${role}`,
-            refresh_token: "demo",
-            token_type: "bearer",
-            user: {
-              id: `demo-${role}`,
-              email,
-              name: demoAccounts[role].name,
-              role,
-            },
-          }
-        : await api.login(email, password);
-      if (!demo && tokens.user.role !== role) {
+      const tokens = await api.login(email, password);
+      if (tokens.user.role !== role) {
         setMessage(
           "This account belongs to a different role. Select the matching workspace.",
         );
         return;
       }
       client.clear();
-      setSession(tokens, demo);
+      setSession(tokens);
       const locale = (tokens.user as typeof tokens.user & { locale?: Locale })
         .locale;
       if (locale && ["en", "hi", "mr", "gu", "kn"].includes(locale))
@@ -139,6 +127,38 @@ export default function LoginPage() {
               );
             })}
           </div>
+          {role === "landowner" && (
+            <label>
+              Citizen demo account
+              <select
+                value={
+                  citizenDemoAccounts.some((account) => account.email === email)
+                    ? email
+                    : ""
+                }
+                disabled={loading}
+                onChange={(event) => {
+                  const account = citizenDemoAccounts.find(
+                    (item) => item.email === event.target.value,
+                  );
+                  if (account) {
+                    setEmail(account.email);
+                    setPassword(account.password);
+                    setMessage("");
+                  }
+                }}
+              >
+                <option value="" disabled>
+                  Custom email
+                </option>
+                {citizenDemoAccounts.map((account) => (
+                  <option key={account.email} value={account.email}>
+                    {account.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <form
             onSubmit={(event) => {
               event.preventDefault();
@@ -196,13 +216,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-          <button
-            className="demoButton"
-            disabled={loading}
-            onClick={() => void signIn(true)}
-          >
-            Explore with demo data
-          </button>
           <p className="helper">
             Prefilled accounts access the synthetic showcase. Staff roles are
             provisioned by an administrator.
