@@ -260,6 +260,26 @@ export function DocumentReview({ document }: { document: StoredDocument }) {
   const t = useT();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const reviewFields: Record<string, [string, string][]> = {
+    land_record: [
+      ["owner_name", "Owner name"],
+      ["khasra_survey_number", t("survey")],
+      ["area_hectares", "Area (hectares)"],
+    ],
+    sale_deed: [
+      ["owner_name", "Recorded owner / buyer name"],
+      ["khasra_survey_number", t("survey")],
+      ["document_date", "Deed date"],
+    ],
+    identity_proof: [["owner_name", "Full name on identity proof"]],
+    award_notice: [
+      ["khasra_survey_number", t("survey")],
+      ["document_date", "Notice date"],
+    ],
+    other: [["document_type", "Document description"]],
+  };
+  const visibleFields =
+    reviewFields[document.document_type] ?? reviewFields.other;
   async function confirm(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
@@ -276,13 +296,7 @@ export function DocumentReview({ document }: { document: StoredDocument }) {
       return;
     }
     const fields: Record<string, string | number | null> = {};
-    for (const key of [
-      "owner_name",
-      "khasra_survey_number",
-      "area_hectares",
-      "document_date",
-      "document_type",
-    ]) {
+    for (const [key] of visibleFields) {
       const value = String(form.get(key) ?? "").trim();
       fields[key] =
         key === "area_hectares"
@@ -351,13 +365,7 @@ export function DocumentReview({ document }: { document: StoredDocument }) {
               </details>
             )}
             <div className="formGrid">
-              {[
-                ["owner_name", "Owner name"],
-                ["khasra_survey_number", t("survey")],
-                ["area_hectares", "Area (hectares)"],
-                ["document_date", "Document date"],
-                ["document_type", "Extracted document description"],
-              ].map(([key, label]) => (
+              {visibleFields.map(([key, label]) => (
                 <label key={key}>
                   {label}
                   <input

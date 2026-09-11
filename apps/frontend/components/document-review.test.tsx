@@ -54,6 +54,44 @@ function setup(role: "officer" | "landowner") {
   };
 }
 describe("Document review", () => {
+  it.each([
+    ["identity_proof", ["owner_name"]],
+    ["sale_deed", ["owner_name", "khasra_survey_number", "document_date"]],
+    ["land_record", ["owner_name", "khasra_survey_number", "area_hectares"]],
+    ["award_notice", ["khasra_survey_number", "document_date"]],
+    ["other", ["document_type"]],
+  ])("shows and submits only relevant fields for %s", async (type, names) => {
+    const { container } = render(
+      <DocumentReview
+        document={{
+          ...document,
+          document_type: type,
+          extracted_fields: {
+            owner_name: "Demo name",
+            khasra_survey_number: "OLD-1",
+            area_hectares: 2,
+            document_date: "2026-09-11",
+            document_type: "Demo",
+          },
+        }}
+      />,
+      { wrapper: setup("officer") },
+    );
+    window.document.querySelector("details")!.open = true;
+    expect(
+      Array.from(container.querySelectorAll("input[name]"), (element) =>
+        element.getAttribute("name"),
+      ),
+    ).toEqual(names);
+    fireEvent.click(screen.getByRole("button", { name: "Verify record" }));
+    await waitFor(() => expect(apiFetch).toHaveBeenCalled());
+    const payload = JSON.parse(
+      vi.mocked(apiFetch).mock.calls[0][1]!.body as string,
+    );
+    expect(Object.keys(payload.fields)).toEqual(names);
+    expect(payload.approved).toBe(true);
+  });
+
   it("loads a protected preview on demand and releases it when closed", async () => {
     const revoke = vi.fn();
     vi.stubGlobal("URL", {
