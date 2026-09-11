@@ -102,6 +102,47 @@ def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     assert fields["khasra_survey_number"] == "KH-101"
     assert fields["area_hectares"] == 0.72
 
+    document_id = extraction.json()["document_id"]
+    original_url = f"/documents/{document_id}/original"
+    original = client.get(original_url, headers=authorization(officer))
+    assert original.status_code == 200
+    assert original.content == make_sample_land_record()
+    assert original.headers["cache-control"] == "private, no-store"
+    assert client.get(original_url).status_code == 403
+    outsider = register(client, "landowner", uuid.uuid4().hex)
+    assert client.get(original_url, headers=authorization(outsider)).status_code == 404
+    preview = client.get(original_url + "?preview=true", headers=authorization(landowner))
+    assert preview.status_code == 200
+    assert preview.headers["content-type"] == "image/png"
+    operations_url = f"/cases/{case_id}/operations"
+    documents = client.get(operations_url, headers=authorization(landowner)).json()["documents"]
+    assert "original_content" not in documents[0]
+    assert documents[0]["original_filename"] == "sample-7-12.png"
+    for reason in (None, "   "):
+        rejected = client.post(
+            f"/documents/{document_id}/confirm",
+            headers=authorization(officer),
+            json={"approved": False, "fields": {}, "rejection_reason": reason},
+        )
+        assert rejected.status_code == 422
+    rejected = client.post(
+        f"/documents/{document_id}/confirm",
+        headers=authorization(officer),
+        json={"approved": False, "fields": {}, "rejection_reason": "  Survey number is unclear.  "},
+    )
+    assert rejected.status_code == 200
+    documents = client.get(operations_url, headers=authorization(landowner)).json()["documents"]
+    assert documents[0]["status"] == "rejected"
+    assert documents[0]["rejection_reason"] == "Survey number is unclear."
+    assert (
+        client.post(
+            f"/documents/{document_id}/confirm",
+            headers=authorization(landowner),
+            json={"approved": True, "fields": {}},
+        ).status_code
+        == 403
+    )
+
     with monkeypatch.context() as patch:
         patch.setattr(
             intelligence, "extract_document", AsyncMock(side_effect=RuntimeError("OCR timeout"))
@@ -121,6 +162,20 @@ def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     )
     assert confirmation.status_code == 200, confirmation.text
     assert confirmation.json()["status"] == "verified"
+    documents = client.get(operations_url, headers=authorization(landowner)).json()["documents"]
+    assert documents[0]["rejection_reason"] is None
+    assert client.get(original_url, headers=authorization(officer)).content == original.content
+    reextracted = client.post(
+        f"/documents/{document_id}/extract",
+        headers=authorization(officer),
+        files={"file": ("revised.png", make_sample_land_record(), "image/png")},
+    )
+    assert reextracted.status_code == 200
+    assert reextracted.json()["document_id"] != document_id
+    documents = client.get(operations_url, headers=authorization(landowner)).json()["documents"]
+    assert len(documents) == 2
+    assert documents[0]["version"] == 2
+    assert documents[1]["status"] == "verified"
 
     grievance = client.post(
         f"/cases/{case_id}/grievances",

@@ -1,9 +1,11 @@
+import io
 import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Body, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from PIL import Image, UnidentifiedImageError
 from pydantic import ValidationError
 from sqlalchemy import Select, func, select
@@ -27,7 +29,7 @@ from app.schemas.intelligence import (
 )
 from app.services.audit import write_audit_log
 from app.services.case_access import accessible_case_or_404, scope_case_query
-from app.services.document_ai import extract_document
+from app.services.document_ai import _prepare_image, extract_document
 from app.services.grievance_ai import classify_grievance
 from app.services.master_data import DOCUMENT_TYPES, missing_document_fields, validate_survey_number
 from app.services.predictive import predict, predict_days
@@ -79,7 +81,10 @@ async def upload_and_extract_document(
     document = Document(
         case_id=case_id,
         version=version,
-        file_url=f"metadata-only://{(file.filename or 'scan').split('/')[-1][:200]}",
+        file_url="database://original",
+        original_content=content,
+        original_media_type=file.content_type,
+        original_filename=(file.filename or "scan").replace("\\", "/").split("/")[-1][:200],
         document_type=document_type,
         created_at=datetime.now(UTC),
         extracted_fields=fields.model_dump(),
@@ -93,6 +98,50 @@ async def upload_and_extract_document(
     await db.commit()
     return DocumentExtractionResponse(
         document_id=document.id, status=document.status, fields=fields
+    )
+
+
+def _scan_preview(content: bytes) -> bytes:
+    image = _prepare_image(content)
+    try:
+        output = io.BytesIO()
+        image.save(output, format="PNG")
+        return output.getvalue()
+    finally:
+        image.close()
+
+
+@router.get("/documents/{document_id}/original")
+async def original_document(
+    document_id: uuid.UUID,
+    preview: bool = False,
+    db: AsyncSession = Depends(get_db),
+    actor: User = Depends(get_current_user),
+) -> Response:
+    document = await db.get(Document, document_id)
+    if document is None:
+        raise HTTPException(404, "Document not found")
+    await accessible_case_or_404(db, document.case_id, actor)
+    content = await db.scalar(select(Document.original_content).where(Document.id == document_id))
+    if content is None:
+        raise HTTPException(
+            404, "Original unavailable for this older upload. Upload a new version."
+        )
+    media_type = document.original_media_type or "application/octet-stream"
+    if preview:
+        content = await run_in_threadpool(_scan_preview, content)
+        media_type = "image/png"
+    extension = {"image/png": "png", "image/jpeg": "jpg", "image/tiff": "tiff"}.get(
+        media_type, "bin"
+    )
+    return Response(
+        content,
+        media_type=media_type,
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Disposition": f'attachment; filename="scan-{document_id}.{extension}"',
+        },
     )
 
 
@@ -118,8 +167,29 @@ async def reextract_document(
         raise HTTPException(422, "Cannot read this image") from exc
     except RuntimeError as exc:
         raise HTTPException(503, "Document reading timed out. Try a smaller, clear image.") from exc
-    document.extracted_fields = fields.model_dump()
-    document.status = DocumentStatus.EXTRACTED
+    await accessible_case_or_404(db, document.case_id, actor, for_update=True)
+    version = (
+        await db.scalar(
+            select(func.coalesce(func.max(Document.version), 0)).where(
+                Document.case_id == document.case_id
+            )
+        )
+    ) + 1
+    document = Document(
+        case_id=document.case_id,
+        parent_document_id=document.id,
+        version=version,
+        file_url="database://original",
+        original_content=content,
+        original_media_type=file.content_type,
+        original_filename=(file.filename or "scan").replace("\\", "/").split("/")[-1][:200],
+        document_type=document.document_type,
+        created_at=datetime.now(UTC),
+        extracted_fields=fields.model_dump(),
+        status=DocumentStatus.EXTRACTED,
+    )
+    db.add(document)
+    await db.flush()
     await write_audit_log(
         db, actor.id, f"document.reextract:{document.id}:{fields.extraction_method}"
     )
@@ -140,6 +210,9 @@ async def confirm_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     await accessible_case_or_404(db, document.case_id, actor)
+    reason = (payload.rejection_reason or "").strip()
+    if not payload.approved and not reason:
+        raise HTTPException(422, "A rejection reason is required")
     allowed = {
         "owner_name",
         "khasra_survey_number",
@@ -165,7 +238,13 @@ async def confirm_document(
                 raise HTTPException(422, str(exc)) from exc
     document.extracted_fields = merged
     document.status = DocumentStatus.VERIFIED if payload.approved else DocumentStatus.REJECTED
-    await write_audit_log(db, actor.id, f"document.confirm:{document.id}:{document.status}")
+    document.rejection_reason = None if payload.approved else reason
+    await write_audit_log(
+        db,
+        actor.id,
+        f"document.confirm:{document.id}:{document.status}:"
+        + json.dumps({"rejection_reason": document.rejection_reason}),
+    )
     await db.commit()
     return DocumentExtractionResponse(
         document_id=document.id, status=document.status, fields=merged
@@ -300,9 +379,7 @@ def _row_features(
 
 
 async def _prediction_features(db: AsyncSession, case_id: uuid.UUID) -> dict[str, Any]:
-    row = (
-        await db.execute(_prediction_query().where(AcquisitionCase.id == case_id))
-    ).one_or_none()
+    row = (await db.execute(_prediction_query().where(AcquisitionCase.id == case_id))).one_or_none()
     if row is None:
         raise HTTPException(status_code=404, detail="Case not found")
     return _row_features(*row)

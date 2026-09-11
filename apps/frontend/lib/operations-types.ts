@@ -18,6 +18,8 @@ export interface StoredDocument {
   version: number;
   document_type: string;
   file_url: string;
+  original_filename?: string | null;
+  rejection_reason?: string | null;
   status: string;
   created_at: string | null;
   extracted_fields: Record<string, string | number | null> | null;

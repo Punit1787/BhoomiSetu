@@ -11,6 +11,7 @@ from sqlalchemy import (
     Enum,
     ForeignKey,
     Integer,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -130,6 +131,12 @@ class Document(UUIDPrimaryKey, Base):
         ForeignKey("documents.id"), nullable=True
     )
     file_url: Mapped[str] = mapped_column(String(500))
+    original_content: Mapped[bytes | None] = mapped_column(
+        LargeBinary, nullable=True, deferred=True
+    )
+    original_media_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    original_filename: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     document_type: Mapped[str] = mapped_column(
         String(50), default="land_record", server_default="land_record"
     )

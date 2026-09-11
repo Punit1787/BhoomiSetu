@@ -132,7 +132,8 @@ export async function apiFetch<T>(
   if (response.status === 204) return undefined as T;
   if (
     response.headers.get("content-type")?.includes("text/csv") ||
-    response.headers.get("content-type")?.startsWith("audio/")
+    response.headers.get("content-type")?.startsWith("audio/") ||
+    response.headers.get("content-type")?.startsWith("image/")
   )
     return response.blob() as Promise<T>;
   return response.json() as Promise<T>;

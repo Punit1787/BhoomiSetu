@@ -24,6 +24,7 @@ class DocumentExtractionResponse(BaseModel):
 class DocumentConfirmationRequest(BaseModel):
     fields: dict[str, Any]
     approved: bool = True
+    rejection_reason: str | None = Field(default=None, max_length=2000)
 
 
 class GrievanceCreateRequest(BaseModel):

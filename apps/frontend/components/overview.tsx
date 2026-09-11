@@ -3,7 +3,9 @@ import Link from "next/link";
 import { api, apiFetch } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { useT } from "@/lib/i18n";
-import { stages } from "@/lib/demo-data";
+import { CheckCircle2 } from "lucide-react";
+import type { CaseSummary } from "@/lib/types";
+import { caseReference, stages } from "@/lib/demo-data";
 import type { Dashboard, Inbox } from "@/lib/operations-types";
 import {
   dateLabel,
@@ -16,8 +18,10 @@ import {
 export function Overview({
   dashboard,
   inbox,
+  cases = [],
 }: {
   dashboard: Dashboard;
+  cases?: CaseSummary[];
   inbox?: Inbox;
 }) {
   const t = useT();
@@ -144,6 +148,57 @@ export function Overview({
           />
         ))}
       </section>
+      {user?.role === "landowner" && (
+        <section className="panel">
+          <div className="panelHead">
+            <h2>{t("caseJourney")}</h2>
+          </div>
+          {cases.length === 0 && <p>No cases linked to this account.</p>}
+          {cases.map((item) => (
+            <div className="citizenProgress" key={item.id}>
+              <Link
+                className="textLink"
+                href={`/portal/landowner?view=cases&case=${item.id}`}
+              >
+                {caseReference(item)} →
+              </Link>
+              <ol className="caseTimeline">
+                {stages.map((stage, index) => {
+                  const current = stages.indexOf(item.current_stage);
+                  const done = index < current;
+                  return (
+                    <li
+                      key={stage}
+                      className={
+                        done ? "done" : index === current ? "current" : ""
+                      }
+                      aria-current={index === current ? "step" : undefined}
+                    >
+                      <span className="timelineDot">
+                        {done ? (
+                          <CheckCircle2 size={18} aria-hidden="true" />
+                        ) : (
+                          index + 1
+                        )}
+                      </span>
+                      <div>
+                        <strong>{t(stage)}</strong>
+                        <small>
+                          {done
+                            ? t("completedStage")
+                            : index === current
+                              ? t("currentStage")
+                              : t("upcomingStage")}
+                        </small>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </div>
+          ))}
+        </section>
+      )}
       <div className="twoColumns">
         <section className="panel">
           <div className="panelHead">

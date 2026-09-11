@@ -19,6 +19,7 @@ import type {
   StoredDocument,
   StoredGrievance,
 } from "@/lib/operations-types";
+import { DocumentOriginal } from "./document-original";
 import { ReadAloud } from "./read-aloud";
 import {
   dateLabel,
@@ -253,7 +254,7 @@ export function CaseRecordSummary({ data }: { data: CaseOperations }) {
   );
 }
 
-function DocumentReview({ document }: { document: StoredDocument }) {
+export function DocumentReview({ document }: { document: StoredDocument }) {
   const { demoMode, user } = useAuthStore();
   const client = useQueryClient();
   const t = useT();
@@ -267,6 +268,13 @@ function DocumentReview({ document }: { document: StoredDocument }) {
       event.currentTarget,
       (event.nativeEvent as SubmitEvent).submitter,
     );
+    const approved = form.get("decision") === "approve";
+    const rejectionReason = String(form.get("rejection_reason") ?? "").trim();
+    if (!approved && !rejectionReason) {
+      setMessage("Enter a reason so the citizen knows what to correct.");
+      setBusy(false);
+      return;
+    }
     const fields: Record<string, string | number | null> = {};
     for (const key of [
       "owner_name",
@@ -288,7 +296,8 @@ function DocumentReview({ document }: { document: StoredDocument }) {
         method: "POST",
         body: JSON.stringify({
           fields,
-          approved: form.get("decision") === "approve",
+          approved,
+          rejection_reason: approved ? null : rejectionReason,
         }),
       });
       await client.invalidateQueries({ queryKey: ["workspace"] });
@@ -325,51 +334,78 @@ function DocumentReview({ document }: { document: StoredDocument }) {
             : "Confidence not recorded"}
           . Check the original document before approval.
         </p>
-        <form onSubmit={confirm}>
-          <div className="formGrid">
-            {[
-              ["owner_name", "Owner name"],
-              ["khasra_survey_number", t("survey")],
-              ["area_hectares", "Area (hectares)"],
-              ["document_date", "Document date"],
-              ["document_type", "Extracted document description"],
-            ].map(([key, label]) => (
-              <label key={key}>
-                {label}
-                <input
-                  name={key}
-                  type={key === "area_hectares" ? "number" : "text"}
-                  min={key === "area_hectares" ? 0 : undefined}
-                  step={key === "area_hectares" ? "any" : undefined}
-                  defaultValue={String(fields[key] ?? "")}
-                  readOnly={user?.role === "landowner"}
+        {document.rejection_reason && (
+          <p className="errorNote">
+            <strong>Rejection reason:</strong> {document.rejection_reason}
+            <br />
+            Correct the issue and upload a new version for review.
+          </p>
+        )}
+        <div className="documentComparison">
+          <DocumentOriginal key={document.id} document={document} />
+          <form onSubmit={confirm}>
+            {fields.raw_text_excerpt && (
+              <details>
+                <summary>Extracted text excerpt</summary>
+                <p className="notice">{fields.raw_text_excerpt}</p>
+              </details>
+            )}
+            <div className="formGrid">
+              {[
+                ["owner_name", "Owner name"],
+                ["khasra_survey_number", t("survey")],
+                ["area_hectares", "Area (hectares)"],
+                ["document_date", "Document date"],
+                ["document_type", "Extracted document description"],
+              ].map(([key, label]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    name={key}
+                    type={key === "area_hectares" ? "number" : "text"}
+                    min={key === "area_hectares" ? 0 : undefined}
+                    step={key === "area_hectares" ? "any" : undefined}
+                    defaultValue={String(fields[key] ?? "")}
+                    readOnly={user?.role === "landowner"}
+                  />
+                </label>
+              ))}
+            </div>
+            {user?.role !== "landowner" && (
+              <label>
+                Reason for rejection (required when rejecting)
+                <textarea
+                  name="rejection_reason"
+                  maxLength={2000}
+                  defaultValue={document.rejection_reason ?? ""}
+                  placeholder="Explain what must be corrected or resubmitted."
                 />
               </label>
-            ))}
-          </div>
-          {user?.role !== "landowner" && (
-            <div className="buttonRow">
-              <button
-                type="submit"
-                name="decision"
-                value="approve"
-                disabled={busy || demoMode}
-                className="button primary"
-              >
-                Verify record
-              </button>
-              <button
-                type="submit"
-                name="decision"
-                value="reject"
-                disabled={busy || demoMode}
-                className="button secondary"
-              >
-                Reject
-              </button>
-            </div>
-          )}
-        </form>
+            )}
+            {user?.role !== "landowner" && (
+              <div className="buttonRow">
+                <button
+                  type="submit"
+                  name="decision"
+                  value="approve"
+                  disabled={busy || demoMode}
+                  className="button primary"
+                >
+                  Verify record
+                </button>
+                <button
+                  type="submit"
+                  name="decision"
+                  value="reject"
+                  disabled={busy || demoMode}
+                  className="button secondary"
+                >
+                  Reject
+                </button>
+              </div>
+            )}
+          </form>
+        </div>
         {message && (
           <p role="status" className="notice">
             {message}

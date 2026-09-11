@@ -307,7 +307,7 @@ function Workspace() {
         retry={() => void summaryQuery.refetch()}
       />
     ) : dashboard ? (
-      <Overview dashboard={dashboard} inbox={inbox} />
+      <Overview dashboard={dashboard} inbox={inbox} cases={cases} />
     ) : (
       <Loading />
     );

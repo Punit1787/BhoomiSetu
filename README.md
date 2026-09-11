@@ -17,7 +17,7 @@ compensation records, grievances and project performance easier to track.
 - **GIS mapping:** Interactive parcel maps backed by PostgreSQL/PostGIS and OpenStreetMap reference tiles.
 - **Compensation and rehabilitation:** Recorded payment status, R&R progress, affected/displaced family counts and due dates.
 - **Dashboards and reporting:** Eight KPI groups, project/state comparisons, timeline alerts, customizable CSV reports and print/save-to-PDF.
-- **Document and predictive assistance:** Tesseract OCR with officer review, grievance classification, delay-risk estimates and compensation timeline estimates.
+- **Document and predictive assistance:** Tesseract OCR with protected original-scan comparison and citizen-visible rejection reasons, grievance classification, delay-risk estimates and compensation timeline estimates.
 - **Accessibility:** Responsive mobile layouts; English, Hindi, Marathi, Gujarati and Kannada labels; citizen read-aloud with a server audio fallback.
 
 ## Technology stack

@@ -56,7 +56,11 @@ def record(value):
     if value is None:
         return None
     return jsonable_encoder(
-        {column.name: getattr(value, column.name) for column in value.__table__.columns},
+        {
+            column.name: getattr(value, column.name)
+            for column in value.__table__.columns
+            if column.name != "original_content"
+        },
         custom_encoder={Decimal: str},
     )
 

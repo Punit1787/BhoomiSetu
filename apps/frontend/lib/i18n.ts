@@ -156,6 +156,15 @@ export const messages: Record<
     "આગળનો તબક્કો",
     "ಮುಂದಿನ ಹಂತ",
   ],
+  completedStage: ["Completed", "पूर्ण", "पूर्ण", "પૂર્ણ", "ಪೂರ್ಣಗೊಂಡಿದೆ"],
+  currentStage: [
+    "Current stage",
+    "वर्तमान चरण",
+    "सध्याचा टप्पा",
+    "વર્તમાન તબક્કો",
+    "ಪ್ರಸ್ತುತ ಹಂತ",
+  ],
+  upcomingStage: ["Upcoming", "आगामी", "पुढील", "આગામી", "ಮುಂಬರುವ"],
   complete: ["Complete", "पूर्ण", "पूर्ण", "પૂર્ણ", "ಪೂರ್ಣ"],
   readAloud: ["Read aloud", "सुनें", "ऐका", "સાંભળો", "ಓದಿ ಕೇಳಿಸಿ"],
   stopReading: [

@@ -2455,3 +2455,11 @@ tbody tr:last-child td {
   min-width: 0;
   scroll-margin-top: 84px;
 }
+
+.documentComparison { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; align-items: start; }
+.documentComparison > * { min-width: 0; }
+.originalScan img { display: block; width: 100%; height: auto; margin-top: 16px; border: 1px solid #d8dfdb; }
+.citizenProgress + .citizenProgress { border-top: 1px solid #d8dfdb; padding-top: 20px; }
+.citizenProgress .done { color: #17633b; }
+.citizenProgress .done small { color: #17633b; font-weight: 600; }
+@media (max-width: 800px) { .documentComparison { grid-template-columns: 1fr; } }

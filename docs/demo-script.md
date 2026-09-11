@@ -8,8 +8,9 @@ Allow the free backend to wake before presenting.
    try Read aloud; use the audio player if the browser voice is unavailable. Explain the next stage and
    distinguish recorded deadlines from an unrecorded date.
 2. **Documents:** select a case and upload a clear PNG/JPEG/TIFF land-record scan.
-   State that OCR fields are saved but original scans are not retained. Sign in
-   as Field Officer, review/correct fields, and confirm or reject the extraction.
+   Sign in as Field Officer, open View original to compare the scan beside extracted fields,
+   then verify or reject with a reason. As Citizen, show the reason and upload a corrected version.
+   Originals are retained for new uploads; older metadata-only records need re-uploading.
 3. **Grievances:** submit a synthetic complaint as Citizen. As Field Officer,
    confirm its category/priority/department, add a response and update status.
 4. **Workflow:** open an assigned case, provide a reason and advance one valid
