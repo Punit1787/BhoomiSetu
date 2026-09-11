@@ -156,6 +156,20 @@ export const messages: Record<
     "આગળનો તબક્કો",
     "ಮುಂದಿನ ಹಂತ",
   ],
+  documentReview: [
+    "Document review",
+    "दस्तावेज़ समीक्षा",
+    "कागदपत्र तपासणी",
+    "દસ્તાવેજ સમીક્ષા",
+    "ದಾಖಲೆ ಪರಿಶೀಲನೆ",
+  ],
+  grievanceManagement: [
+    "Grievance management",
+    "शिकायत प्रबंधन",
+    "तक्रार व्यवस्थापन",
+    "ફરિયાદ વ્યવસ્થાપન",
+    "ದೂರು ನಿರ್ವಹಣೆ",
+  ],
   completedStage: ["Completed", "पूर्ण", "पूर्ण", "પૂર્ણ", "ಪೂರ್ಣಗೊಂಡಿದೆ"],
   currentStage: [
     "Current stage",

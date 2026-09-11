@@ -30,7 +30,7 @@ def test_generated_audio_is_playable_in_each_language(locale, text):
 
 
 def test_speech_requires_login_and_limits_input(client, monkeypatch):
-    assert client.post("/accessibility/speech", json={"text": "Hello"}).status_code == 403
+    assert client.post("/accessibility/speech", json={"text": "Hello"}).status_code == 401
     account = register(client, "landowner", uuid.uuid4().hex)
     headers = authorization(account)
     assert (

@@ -53,7 +53,7 @@ async def upload_and_extract_document(
     file: UploadFile = File(...),
     document_type: str = Form(default="land_record"),
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(get_current_user),
+    actor: User = Depends(require_roles(UserRole.LANDOWNER)),
 ) -> DocumentExtractionResponse:
     await accessible_case_or_404(db, case_id, actor, for_update=True)
     if document_type not in DOCUMENT_TYPES:
@@ -148,7 +148,6 @@ async def original_document(
 @router.post("/documents/{document_id}/extract", response_model=DocumentExtractionResponse)
 async def reextract_document(
     document_id: uuid.UUID,
-    file: UploadFile = File(...),
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_roles(*OFFICER_ROLES)),
 ) -> DocumentExtractionResponse:
@@ -156,13 +155,13 @@ async def reextract_document(
     if document is None:
         raise HTTPException(status_code=404, detail="Document not found")
     await accessible_case_or_404(db, document.case_id, actor)
-    if file.content_type not in {"image/png", "image/jpeg", "image/tiff"}:
-        raise HTTPException(415, "OCR currently accepts PNG, JPEG or TIFF images")
-    content = await file.read(10 * 1024 * 1024 + 1)
-    if len(content) > 10 * 1024 * 1024:
-        raise HTTPException(413, "Document exceeds the 10 MB limit")
+    content = await db.scalar(select(Document.original_content).where(Document.id == document_id))
+    if content is None:
+        raise HTTPException(404, "Original unavailable. Ask the citizen to upload a new version.")
+    media_type = document.original_media_type or "image/png"
+    filename = document.original_filename or "scan"
     try:
-        fields = await extract_document(content, file.content_type or "image/png")
+        fields = await extract_document(content, media_type)
     except (UnidentifiedImageError, Image.DecompressionBombError, OSError, ValueError) as exc:
         raise HTTPException(422, "Cannot read this image") from exc
     except RuntimeError as exc:
@@ -181,8 +180,8 @@ async def reextract_document(
         version=version,
         file_url="database://original",
         original_content=content,
-        original_media_type=file.content_type,
-        original_filename=(file.filename or "scan").replace("\\", "/").split("/")[-1][:200],
+        original_media_type=media_type,
+        original_filename=filename,
         document_type=document.document_type,
         created_at=datetime.now(UTC),
         extracted_fields=fields.model_dump(),
@@ -260,7 +259,7 @@ async def create_and_classify_grievance(
     case_id: uuid.UUID,
     payload: GrievanceCreateRequest,
     db: AsyncSession = Depends(get_db),
-    actor: User = Depends(get_current_user),
+    actor: User = Depends(require_roles(UserRole.LANDOWNER)),
 ) -> GrievanceResponse:
     await accessible_case_or_404(db, case_id, actor)
     classification = await run_in_threadpool(classify_grievance, payload.description)
@@ -284,7 +283,6 @@ async def create_and_classify_grievance(
 @router.post("/grievances/{grievance_id}/classify", response_model=GrievanceResponse)
 async def classify_existing_grievance(
     grievance_id: uuid.UUID,
-    payload: GrievanceCreateRequest,
     db: AsyncSession = Depends(get_db),
     actor: User = Depends(require_roles(*OFFICER_ROLES)),
 ) -> GrievanceResponse:
@@ -292,13 +290,14 @@ async def classify_existing_grievance(
     if grievance is None:
         raise HTTPException(status_code=404, detail="Grievance not found")
     await accessible_case_or_404(db, grievance.case_id, actor)
-    classification = await run_in_threadpool(classify_grievance, payload.description)
+    if not grievance.description:
+        raise HTTPException(422, "This older grievance has no retained description")
+    classification = await run_in_threadpool(classify_grievance, grievance.description)
     grievance.category, grievance.priority, grievance.department = (
         classification.category,
         classification.priority,
         classification.suggested_department,
     )
-    grievance.description = payload.description
     await write_audit_log(db, actor.id, f"grievance.reclassify:{grievance.id}")
     await db.commit()
     return GrievanceResponse(

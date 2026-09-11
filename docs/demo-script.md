@@ -35,3 +35,7 @@ Close with the practical benefit: one traceable case record for families,
 officers and reviewing authorities. No automated ownership, valuation or legal
 outcome is claimed. Rehearse using synthetic inputs; never reset hosted data
 just to prepare a presentation.
+
+Citizens submit documents and grievances. Staff use Document review and Grievance management
+to check submissions and respond; they cannot submit on a citizen’s behalf. Citizen Overview
+shows the individual journey, while the stage-count chart is reserved for staff.

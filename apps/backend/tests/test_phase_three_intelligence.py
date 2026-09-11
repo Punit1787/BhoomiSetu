@@ -89,6 +89,24 @@ def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     )
     assert acquisition_case.status_code == 201, acquisition_case.text
     case_id = acquisition_case.json()["id"]
+    senior = register(client, "senior_admin", suffix)
+    for staff in (officer, authority, district, senior):
+        assert (
+            client.post(
+                f"/cases/{case_id}/documents",
+                headers=authorization(staff),
+                files={"file": ("staff.png", b"not read", "image/png")},
+            ).status_code
+            == 403
+        )
+        assert (
+            client.post(
+                f"/cases/{case_id}/grievances",
+                headers=authorization(staff),
+                json={"description": "Staff cannot submit a citizen grievance"},
+            ).status_code
+            == 403
+        )
 
     extraction = client.post(
         f"/cases/{case_id}/documents",
@@ -108,7 +126,7 @@ def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     assert original.status_code == 200
     assert original.content == make_sample_land_record()
     assert original.headers["cache-control"] == "private, no-store"
-    assert client.get(original_url).status_code == 403
+    assert client.get(original_url).status_code == 401
     outsider = register(client, "landowner", uuid.uuid4().hex)
     assert client.get(original_url, headers=authorization(outsider)).status_code == 404
     preview = client.get(original_url + "?preview=true", headers=authorization(landowner))
@@ -168,13 +186,13 @@ def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     reextracted = client.post(
         f"/documents/{document_id}/extract",
         headers=authorization(officer),
-        files={"file": ("revised.png", make_sample_land_record(), "image/png")},
     )
     assert reextracted.status_code == 200
     assert reextracted.json()["document_id"] != document_id
     documents = client.get(operations_url, headers=authorization(landowner)).json()["documents"]
     assert len(documents) == 2
     assert documents[0]["version"] == 2
+    assert documents[0]["original_filename"] == "sample-7-12.png"
     assert documents[1]["status"] == "verified"
 
     grievance = client.post(
@@ -189,6 +207,15 @@ def test_phase_three_ai_ml_and_gis(client: TestClient, monkeypatch) -> None:
     assert grievance.status_code == 201, grievance.text
     assert grievance.json()["classification"]["category"] == "compensation"
     assert grievance.json()["classification"]["priority"] == "urgent"
+    grievance_id = grievance.json()["id"]
+    result = client.post(
+        f"/grievances/{grievance_id}/classify",
+        headers=authorization(officer),
+        json={"description": "Attempted replacement of the citizen statement"},
+    )
+    assert result.status_code == 200
+    stored = client.get(operations_url, headers=authorization(landowner)).json()["grievances"]
+    assert stored[0]["description"].startswith("My compensation payment")
 
     for endpoint in ("delay", "compensation-timeline"):
         prediction = client.get(

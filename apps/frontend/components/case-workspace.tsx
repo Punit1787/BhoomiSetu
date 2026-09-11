@@ -427,6 +427,7 @@ export function DocumentReview({ document }: { document: StoredDocument }) {
 export function DocumentsView({ item }: { item: CaseSummary }) {
   const { data, query, demoMode } = useCaseOperations(item);
   const t = useT();
+  const canSubmit = useAuthStore((state) => state.user?.role === "landowner");
   const client = useQueryClient();
   const [file, setFile] = useState<File | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -469,7 +470,7 @@ export function DocumentsView({ item }: { item: CaseSummary }) {
     );
   if (!data) return <Loading />;
   return (
-    <div className="twoColumns">
+    <div className={canSubmit ? "twoColumns" : ""}>
       <section className="panel">
         <div className="panelHead">
           <h2>{t("documents")}</h2>
@@ -486,80 +487,82 @@ export function DocumentsView({ item }: { item: CaseSummary }) {
           <Empty>{t("noDocuments")}</Empty>
         )}
       </section>
-      <section className="panel">
-        <div className="panelHead">
-          <h2>{t("chooseFile")}</h2>
-        </div>
-        <form onSubmit={upload}>
-          <label>
-            {t("documentType")}
-            <select
-              value={type}
-              onChange={(event) => setType(event.target.value)}
-            >
-              {[
-                "land_record",
-                "sale_deed",
-                "identity_proof",
-                "award_notice",
-                "other",
-              ].map((key) => (
-                <option value={key} key={key}>
-                  {t(key)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label
-            className="dropzone"
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault();
-              if (!busy) {
-                setFile(event.dataTransfer.files[0] ?? null);
-                setMessage("");
-                if (fileInput.current) fileInput.current.value = "";
-              }
-            }}
-          >
-            <UploadCloud size={30} />
-            <strong>{file?.name ?? t("chooseFile")}</strong>
-            <small>PNG, JPEG, TIFF · 10 MB maximum</small>
-            <input
-              ref={fileInput}
-              type="file"
-              disabled={busy}
-              accept="image/png,image/jpeg,image/tiff,.png,.jpg,.jpeg,.jfif,.tif,.tiff"
-              onChange={(event) => {
-                setFile(event.target.files?.[0] ?? null);
-                setMessage("");
+      {canSubmit && (
+        <section className="panel">
+          <div className="panelHead">
+            <h2>{t("chooseFile")}</h2>
+          </div>
+          <form onSubmit={upload}>
+            <label>
+              {t("documentType")}
+              <select
+                value={type}
+                onChange={(event) => setType(event.target.value)}
+              >
+                {[
+                  "land_record",
+                  "sale_deed",
+                  "identity_proof",
+                  "award_notice",
+                  "other",
+                ].map((key) => (
+                  <option value={key} key={key}>
+                    {t(key)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label
+              className="dropzone"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (!busy) {
+                  setFile(event.dataTransfer.files[0] ?? null);
+                  setMessage("");
+                  if (fileInput.current) fileInput.current.value = "";
+                }
               }}
-            />
-          </label>
-          <button
-            type="submit"
-            className="button primary full"
-            disabled={busy || demoMode || !file}
-          >
-            {busy ? (
-              <>
-                <LoaderCircle className="spin" size={16} /> Reading document…
-              </>
-            ) : (
-              t("upload")
-            )}
-          </button>
-        </form>
-        {message && (
-          <p className="notice" role="status">
-            {message}
+            >
+              <UploadCloud size={30} />
+              <strong>{file?.name ?? t("chooseFile")}</strong>
+              <small>PNG, JPEG, TIFF · 10 MB maximum</small>
+              <input
+                ref={fileInput}
+                type="file"
+                disabled={busy}
+                accept="image/png,image/jpeg,image/tiff,.png,.jpg,.jpeg,.jfif,.tif,.tiff"
+                onChange={(event) => {
+                  setFile(event.target.files?.[0] ?? null);
+                  setMessage("");
+                }}
+              />
+            </label>
+            <button
+              type="submit"
+              className="button primary full"
+              disabled={busy || demoMode || !file}
+            >
+              {busy ? (
+                <>
+                  <LoaderCircle className="spin" size={16} /> Reading document…
+                </>
+              ) : (
+                t("upload")
+              )}
+            </button>
+          </form>
+          {message && (
+            <p className="notice" role="status">
+              {message}
+            </p>
+          )}
+          <p className="helper">
+            Original scans and extracted fields are retained securely with each
+            version. Only users with access to this case can view them.
           </p>
-        )}
-        <p className="helper">
-          Extracted fields and versions are retained. Original scan files are
-          not stored by this prototype.
-        </p>
-      </section>
+        </section>
+      )}
     </div>
   );
 }
@@ -666,6 +669,7 @@ export function GrievancesView({ item }: { item: CaseSummary }) {
   const t = useT();
   const client = useQueryClient();
   const user = useAuthStore((state) => state.user);
+  const canSubmit = user?.role === "landowner";
   const [description, setDescription] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -692,7 +696,7 @@ export function GrievancesView({ item }: { item: CaseSummary }) {
     );
   if (!data) return <Loading />;
   return (
-    <div className="twoColumns">
+    <div className={canSubmit ? "twoColumns" : ""}>
       <section className="panel">
         <div className="panelHead">
           <h2>{t("grievances")}</h2>
@@ -730,36 +734,38 @@ export function GrievancesView({ item }: { item: CaseSummary }) {
           </article>
         ))}
       </section>
-      <section className="panel">
-        <div className="panelHead">
-          <h2>{t("submit")}</h2>
-        </div>
-        <form onSubmit={submit}>
-          <label>
-            {t("describeIssue")}
-            <textarea
-              required
-              minLength={10}
-              maxLength={4000}
-              rows={7}
-              value={description}
-              onChange={(event) => setDescription(event.target.value)}
-            />
-          </label>
-          <button className="button primary" disabled={busy || demoMode}>
-            {busy ? <LoaderCircle className="spin" size={17} /> : t("submit")}
-          </button>
-        </form>
-        {message && (
-          <p role="status" className="notice">
-            {message}
+      {canSubmit && (
+        <section className="panel">
+          <div className="panelHead">
+            <h2>{t("submit")}</h2>
+          </div>
+          <form onSubmit={submit}>
+            <label>
+              {t("describeIssue")}
+              <textarea
+                required
+                minLength={10}
+                maxLength={4000}
+                rows={7}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+              />
+            </label>
+            <button className="button primary" disabled={busy || demoMode}>
+              {busy ? <LoaderCircle className="spin" size={17} /> : t("submit")}
+            </button>
+          </form>
+          {message && (
+            <p role="status" className="notice">
+              {message}
+            </p>
+          )}
+          <p className="helper">
+            Classification suggests a category and department. An officer must
+            review the suggestion.
           </p>
-        )}
-        <p className="helper">
-          Classification suggests a category and department. An officer must
-          review the suggestion.
-        </p>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

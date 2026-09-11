@@ -63,3 +63,15 @@ def test_public_registration_cannot_create_staff(client, role):
         },
     )
     assert response.status_code == 403
+
+
+def test_token_without_expiry_is_rejected():
+    import jwt
+
+    from app.core.config import settings
+
+    token = jwt.encode(
+        {"sub": str(uuid.uuid4()), "type": "access"}, settings.jwt_secret, algorithm="HS256"
+    )
+    with pytest.raises(ValueError, match="Invalid"):
+        decode_token(token, "access")

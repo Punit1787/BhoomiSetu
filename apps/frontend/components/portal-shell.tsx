@@ -78,6 +78,12 @@ export function PortalShell({
     { key: "alerts", icon: Bell },
     { key: "settings", icon: Settings },
   ];
+  const viewLabel = (key: string) =>
+    role !== "landowner" && key === "documents"
+      ? t("documentReview")
+      : role !== "landowner" && key === "grievances"
+        ? t("grievanceManagement")
+        : t(key);
   const link = (key: string) => `/portal/${role}?view=${key}`;
   function signOut() {
     logout();
@@ -102,7 +108,7 @@ export function PortalShell({
             aria-current={view === key ? "page" : undefined}
           >
             <ItemIcon size={18} />
-            {t(key)}
+            {viewLabel(key)}
             {key === "alerts" && unread > 0 && (
               <span className="navCount">{unread}</span>
             )}
@@ -156,7 +162,7 @@ export function PortalShell({
             <Menu />
           </button>
           <span className="breadcrumb">
-            BhoomiSetu <ChevronRight size={13} /> {t(view)}
+            BhoomiSetu <ChevronRight size={13} /> {viewLabel(view)}
           </span>
           <div className="headerControls">
             <LanguageSelect />
@@ -185,7 +191,7 @@ export function PortalShell({
         <header className="workspaceHeading">
           <div>
             <p className="eyebrow">{t(role)} · BhoomiSetu</p>
-            <h1>{t(view)}</h1>
+            <h1>{viewLabel(view)}</h1>
             <p>
               {role === "landowner"
                 ? "Your land, documents and next steps in one place."

@@ -199,38 +199,40 @@ export function Overview({
           ))}
         </section>
       )}
-      <div className="twoColumns">
-        <section className="panel">
-          <div className="panelHead">
-            <div>
-              <p className="eyebrow">Workflow progress</p>
-              <h2>Cases by stage</h2>
+      <div className={user?.role === "landowner" ? "" : "twoColumns"}>
+        {user?.role !== "landowner" && (
+          <section className="panel">
+            <div className="panelHead">
+              <div>
+                <p className="eyebrow">Workflow progress</p>
+                <h2>Cases by stage</h2>
+              </div>
+              <span className="count">{dashboard.case_count}</span>
             </div>
-            <span className="count">{dashboard.case_count}</span>
-          </div>
-          <div className="stageBars">
-            {stages.map((stage) => {
-              const count = dashboard.stages[stage] ?? 0;
-              return (
-                <Link
-                  href={`/portal/${user?.role}?view=cases&stage=${stage}`}
-                  key={stage}
-                >
-                  <span>{t(stage)}</span>
-                  <div>
-                    <i
-                      className={`stage-${stage}`}
-                      style={{
-                        width: `${dashboard.case_count ? (count * 100) / dashboard.case_count : 0}%`,
-                      }}
-                    />
-                  </div>
-                  <strong>{count}</strong>
-                </Link>
-              );
-            })}
-          </div>
-        </section>
+            <div className="stageBars">
+              {stages.map((stage) => {
+                const count = dashboard.stages[stage] ?? 0;
+                return (
+                  <Link
+                    href={`/portal/${user?.role}?view=cases&stage=${stage}`}
+                    key={stage}
+                  >
+                    <span>{t(stage)}</span>
+                    <div>
+                      <i
+                        className={`stage-${stage}`}
+                        style={{
+                          width: `${dashboard.case_count ? (count * 100) / dashboard.case_count : 0}%`,
+                        }}
+                      />
+                    </div>
+                    <strong>{count}</strong>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
         <section className="panel">
           <div className="panelHead">
             <div>

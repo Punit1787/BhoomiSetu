@@ -10,11 +10,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiFetch } from "@/lib/api-client";
 import { useAuthStore } from "@/lib/auth-store";
 import { DocumentOriginal } from "./document-original";
-import { DocumentReview } from "./case-workspace";
+import {
+  DocumentsView,
+  GrievancesView,
+  DocumentReview,
+} from "./case-workspace";
 import { Overview } from "./overview";
 import { demoCases } from "@/lib/demo-data";
 import type { Dashboard } from "@/lib/operations-types";
-import type { CaseSummary } from "@/lib/types";
+import type { Role, CaseSummary } from "@/lib/types";
 import { stages } from "@/lib/demo-data";
 vi.mock("@/lib/api-client", () => ({ apiFetch: vi.fn(), api: {} }));
 afterEach(() => {
@@ -31,7 +35,7 @@ const document = {
   created_at: null,
   extracted_fields: {},
 };
-function setup(role: "officer" | "landowner") {
+function setup(role: Role) {
   useAuthStore.persist.setOptions({
     storage: { getItem: () => null, setItem: () => {}, removeItem: () => {} },
   });
@@ -54,6 +58,38 @@ function setup(role: "officer" | "landowner") {
   };
 }
 describe("Document review", () => {
+  it.each([
+    "landowner",
+    "officer",
+    "authority",
+    "district_admin",
+    "senior_admin",
+  ] as const)("maps submission forms to %s permissions", async (role) => {
+    vi.mocked(apiFetch).mockResolvedValue({
+      documents: [],
+      grievances: [],
+      deadlines: [],
+      compensation: null,
+      rr: null,
+    });
+    const wrapper = setup(role);
+    const { container } = render(
+      <>
+        <DocumentsView item={demoCases[0]} />
+        <GrievancesView item={demoCases[0]} />
+      </>,
+      { wrapper },
+    );
+    await screen.findByRole("heading", { name: "Documents" });
+    await screen.findByRole("heading", { name: "Grievances" });
+    expect(container.querySelector('input[type="file"]') !== null).toBe(
+      role === "landowner",
+    );
+    expect(container.querySelector("textarea") !== null).toBe(
+      role === "landowner",
+    );
+  });
+
   it.each([
     ["identity_proof", ["owner_name"]],
     ["sale_deed", ["owner_name", "khasra_survey_number", "document_date"]],
@@ -160,6 +196,9 @@ describe("Document review", () => {
     render(<Overview dashboard={demoDashboard(cases)} cases={cases} />, {
       wrapper: setup("landowner"),
     });
+    expect(
+      screen.queryByRole("heading", { name: "Cases by stage" }),
+    ).not.toBeInTheDocument();
     expect(screen.getAllByText("Completed")).toHaveLength(3);
     expect(screen.getByText("Current stage").closest("li")).toHaveAttribute(
       "aria-current",

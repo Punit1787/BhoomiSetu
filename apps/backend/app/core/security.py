@@ -2,9 +2,9 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
+import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from jose import JWTError, jwt
 
 from app.core.config import settings
 
@@ -49,8 +49,10 @@ def create_token(
 def decode_token(token: str, token_type: Literal["access", "refresh"]) -> dict[str, Any]:
     secret = settings.jwt_secret if token_type == "access" else settings.jwt_refresh_secret
     try:
-        payload = jwt.decode(token, secret, algorithms=[ALGORITHM])
-    except JWTError as error:
+        payload = jwt.decode(
+            token, secret, algorithms=[ALGORITHM], options={"require": ["exp", "iat", "sub"]}
+        )
+    except jwt.InvalidTokenError as error:
         raise ValueError("Invalid or expired token") from error
     if payload.get("type") != token_type or not payload.get("sub"):
         raise ValueError("Invalid token type")
